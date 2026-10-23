@@ -13,9 +13,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: noshpotosh/qa/.github/workflows/quality-review.yml@55c20059792644fcdca42b9118c319828fe66d87
+    uses: noshpotosh/qa/.github/workflows/quality-review.yml@df7ae0f6ab4fa27ca8189449cff496caaaab56a9
     with:
-      qa_ref: 55c20059792644fcdca42b9118c319828fe66d87
+      qa_ref: df7ae0f6ab4fa27ca8189449cff496caaaab56a9
       agent: codex
     secrets:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -25,9 +25,9 @@ jobs:
     permissions:
       contents: read
       issues: write
-    uses: noshpotosh/qa/.github/workflows/quality-audit.yml@55c20059792644fcdca42b9118c319828fe66d87
+    uses: noshpotosh/qa/.github/workflows/quality-audit.yml@df7ae0f6ab4fa27ca8189449cff496caaaab56a9
     with:
-      qa_ref: 55c20059792644fcdca42b9118c319828fe66d87
+      qa_ref: df7ae0f6ab4fa27ca8189449cff496caaaab56a9
       agent: codex
     secrets:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
