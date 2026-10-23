@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "profile": "qa-tooling",
+  "integrationBranch": "main",
+  "agent": "codex",
+  "validationCommands": []
+}

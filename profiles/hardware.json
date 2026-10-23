@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "profile": "hardware",
+  "integrationBranch": "main",
+  "agent": "codex",
+  "validationCommands": []
+}
