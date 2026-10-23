@@ -1,75 +1,79 @@
-# Reusable PR review. Every agent gets the same instruction: follow
-# .qa/skills/quality-review/SKILL.md. Only the runner step differs.
 name: Quality review
-
 on:
   workflow_call:
     inputs:
       agent:
-        description: claude or codex
         type: string
-        default: claude
+        default: codex
       qa_ref:
-        description: Branch or tag of noshpotosh/qa to use
+        description: Exact commit matching the reusable workflow version
         type: string
-        default: main
+        required: true
     secrets:
       ANTHROPIC_API_KEY:
         required: false
       OPENAI_API_KEY:
         required: false
-
-env:
-  REVIEW_PROMPT: |
-    Read .qa/skills/quality-review/SKILL.md and follow it to review PR
-    #${{ github.event.pull_request.number }} in ${{ github.repository }}
-    against origin/${{ github.event.pull_request.base.ref }}.
-    The standards it refers to are in .qa/skills/.
-
+permissions:
+  contents: read
+  pull-requests: write
 jobs:
   review:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/quality-engine.yml
+    with:
+      mode: pr
+      agent: ${{ inputs.agent }}
+      qa_ref: ${{ inputs.qa_ref }}
+    secrets: inherit
+  publish:
+    needs: review
+    if: always() && !cancelled() && needs.review.outputs.policy_status != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Load shared standards
-        uses: actions/checkout@v4
         with:
           repository: noshpotosh/qa
           ref: ${{ inputs.qa_ref }}
           path: .qa
-
-      - name: Review with Claude
-        if: inputs.agent == 'claude'
-        uses: anthropics/claude-code-action@v1
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            ${{ env.REVIEW_PROMPT }}
-            Post the result as ONE comment with `gh pr comment`.
-          claude_args: |
-            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
-
-      - name: Review with Codex
-        if: inputs.agent == 'codex'
-        id: codex
-        uses: openai/codex-action@v1
+          name: qa-context-pr
+          path: .qa-output
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt: ${{ env.REVIEW_PROMPT }}
-
-      - name: Post Codex review
-        if: inputs.agent == 'codex'
+          name: qa-agent-pr
+          path: .qa-result
+      - name: Validate and publish
+        uses: actions/github-script@v7
         env:
-          GH_TOKEN: ${{ github.token }}
-          BODY: ${{ steps.codex.outputs.final-message }}
-        run: gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
-
-      # Grok: add a step here that runs your Grok CLI with $REVIEW_PROMPT and
-      # posts its output the same way as the Codex step.
+          MODE: pr
+          ELIGIBLE: ${{ needs.review.outputs.eligible }}
+        with:
+          script: |
+            const fs = require('fs');
+            const {parseAgent,publishPR,publishAudit} = await import(`${process.cwd()}/.qa/lib/publish.mjs`);
+            const {renderReport,validateReport} = await import(`${process.cwd()}/.qa/lib/report.mjs`);
+            const c=JSON.parse(fs.readFileSync('.qa-output/context.json','utf8'));
+            const policy=validateReport(JSON.parse(fs.readFileSync('.qa-output/policy.json','utf8')));
+            let text='';try{text=fs.readFileSync('.qa-result/agent.json','utf8');}catch{}
+            const agent=parseAgent(text,process.env.MODE==='audit'?10:100);
+            fs.mkdirSync('.qa-result',{recursive:true});
+            fs.writeFileSync('.qa-result/report.json',JSON.stringify({policy,agent},null,2));
+            await core.summary.addRaw(renderReport(policy)+renderReport(agent,{advisory:true})).write();
+            if(process.env.MODE==='pr') {
+              // Fork tokens cannot comment. The summary and artifact remain available.
+              if(process.env.ELIGIBLE==='true') await publishPR(github,{...context.repo,number:c.metadata.number,snapshot:c.metadata,policy,agent});
+            } else await publishAudit(github,{...context.repo,report:agent,head:c.metadata.head});
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-report-pr
+          path: .qa-result/report.json
+          retention-days: 14

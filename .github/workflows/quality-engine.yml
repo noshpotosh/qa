@@ -1,0 +1,191 @@
+name: QA engine
+on:
+  workflow_call:
+    outputs:
+      policy_status:
+        value: ${{ jobs.collect.outputs.status }}
+      eligible:
+        value: ${{ jobs.collect.outputs.eligible }}
+    inputs:
+      mode:
+        type: string
+        required: true
+      agent:
+        type: string
+        required: true
+      qa_ref:
+        type: string
+        required: true
+    secrets:
+      OPENAI_API_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: qa-${{ github.repository }}-${{ inputs.mode }}-${{ github.event.pull_request.number || 'audit' }}
+  cancel-in-progress: true
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      status: ${{ steps.prepare.outputs.policy_status }}
+      eligible: ${{ steps.meta.outputs.eligible }}
+    steps:
+      - name: Validate inputs
+        env:
+          QA_REF: ${{ inputs.qa_ref }}
+          MODE: ${{ inputs.mode }}
+          AGENT: ${{ inputs.agent }}
+        run: |
+          [[ "$QA_REF" =~ ^[0-9a-f]{40}$ ]] || { echo 'qa_ref must be a full commit SHA'; exit 1; }
+          [[ "$MODE" == pr || "$MODE" == audit ]] || exit 1
+          [[ "$AGENT" == codex || "$AGENT" == claude ]] || exit 1
+      - uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Collect current metadata
+        id: meta
+        uses: actions/github-script@v7
+        env:
+          MODE: ${{ inputs.mode }}
+        with:
+          script: |
+            const fs = require('fs');
+            const {owner, repo} = context.repo;
+            let meta, eligible = false;
+            if (process.env.MODE === 'pr') {
+              if (!context.payload.pull_request) throw new Error('PR event required');
+              const {data: pr} = await github.rest.pulls.get({owner,repo,pull_number:context.payload.pull_request.number});
+              meta = {mode:'pr',number:pr.number,base:pr.base.sha,head:pr.head.sha,baseBranch:pr.base.ref,title:pr.title,body:pr.body || '',updatedAt:pr.updated_at};
+              eligible = pr.head.repo?.full_name === `${owner}/${repo}` && !pr.draft && ['OWNER','MEMBER','COLLABORATOR'].includes(pr.author_association);
+            } else {
+              const {data: repoData} = await github.rest.repos.get({owner,repo});
+              let branch = repoData.default_branch;
+              try {
+                const {data} = await github.rest.repos.getContent({owner,repo,path:'.qa.json',ref:branch});
+                branch = JSON.parse(Buffer.from(data.content,'base64').toString()).integrationBranch || branch;
+              } catch (e) { if(e.status !== 404) throw e; }
+              const {data: commit} = await github.rest.repos.getCommit({owner,repo,ref:branch});
+              meta = {mode:'audit',base:commit.sha,head:commit.sha,baseBranch:branch};
+              eligible = true;
+            }
+            fs.writeFileSync('metadata.json',JSON.stringify(meta));
+            core.setOutput('head',meta.head);
+            core.setOutput('eligible',String(eligible));
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.head }}
+          fetch-depth: 0
+          path: subject
+          persist-credentials: false
+      - name: Prepare policy and review context
+        id: prepare
+        run: node .qa/scripts/prepare-ci.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qa-context-${{ inputs.mode }}
+          path: .qa-output/
+          include-hidden-files: true
+          retention-days: 14
+  policy:
+    name: QA / policy
+    needs: collect
+    if: always() && inputs.mode == 'pr'
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          STATUS: ${{ needs.collect.outputs.status }}
+        run: test "$STATUS" = passed
+  agent:
+    needs: collect
+    if: needs.collect.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-context-${{ inputs.mode }}
+          path: .qa-output
+      - name: Resolve review head
+        id: head
+        run: node -e "const c=require('./.qa-output/context.json');require('fs').appendFileSync(process.env.GITHUB_OUTPUT,'sha='+c.metadata.head+'\n')"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.head.outputs.sha }}
+          path: subject
+          persist-credentials: false
+      - name: Check provider availability
+        id: available
+        env:
+          PROVIDER: ${{ inputs.agent }}
+          OPENAI_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ready=false
+          if [[ "$PROVIDER" == codex && -n "$OPENAI_KEY" ]]; then ready=true; fi
+          if [[ "$PROVIDER" == claude && -n "$ANTHROPIC_KEY" ]]; then ready=true; fi
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+      - name: Review with Claude
+        id: claude
+        if: inputs.agent == 'claude' && steps.available.outputs.ready == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          display_report: false
+          prompt: Read .qa-output/prompt.txt and follow its review instructions. Return only the JSON report matching .qa-output/schema.json.
+          claude_args: --tools "Read,Grep,Glob" --max-turns 30
+      - name: Review with Codex
+        id: codex
+        if: inputs.agent == 'codex' && steps.available.outputs.ready == 'true'
+        continue-on-error: true
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .qa-output/prompt.txt
+          output-schema-file: .qa-output/schema.json
+          sandbox: read-only
+          safety-strategy: drop-sudo
+      - name: Capture output as untrusted data
+        if: always()
+        env:
+          PROVIDER: ${{ inputs.agent }}
+          CODEX_RESULT: ${{ steps.codex.outputs.final-message }}
+          CLAUDE_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          fs.mkdirSync('.qa-result',{recursive:true});
+          let text=process.env.CODEX_RESULT || '';
+          if(process.env.PROVIDER==='claude') {
+            try {
+              const raw=JSON.parse(fs.readFileSync(process.env.CLAUDE_FILE,'utf8'));
+              const result=Array.isArray(raw)?raw.findLast(x=>x.type==='result'):raw;
+              text=result.result || '';
+            } catch { text=''; }
+          }
+          fs.writeFileSync('.qa-result/agent.json',text);
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-agent-${{ inputs.mode }}
+          path: .qa-result/
+          include-hidden-files: true
+          retention-days: 14
