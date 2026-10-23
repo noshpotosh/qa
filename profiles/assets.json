@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "profile": "assets",
+  "integrationBranch": "main",
+  "agent": "codex",
+  "validationCommands": []
+}

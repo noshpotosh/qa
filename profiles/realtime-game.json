@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "profile": "realtime-game",
+  "integrationBranch": "main",
+  "agent": "codex",
+  "validationCommands": []
+}

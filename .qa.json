@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "profile": "qa-tooling",
+  "integrationBranch": "main",
+  "validationCommands": ["npm test", "npm run check", "actionlint .github/workflows/*.yml"],
+  "paths": { "ui": [] }
+}

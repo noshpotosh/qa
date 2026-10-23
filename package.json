@@ -1,0 +1,9 @@
+{
+  "name": "@noshpotosh/qa",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "bin": { "qa": "bin/qa.mjs" },
+  "scripts": { "test": "node --test tests/*.test.mjs", "check": "node scripts/validate.mjs" }
+}
