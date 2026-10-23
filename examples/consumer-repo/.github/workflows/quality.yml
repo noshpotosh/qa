@@ -1,30 +1,34 @@
-# Copy into any repo that should follow the shared standards.
 name: Quality
-
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
   schedule:
-    - cron: "0 14 * * 1"   # Mondays 14:00 UTC
+    - cron: "0 14 * * 1"
   workflow_dispatch:
-
+permissions:
+  contents: read
 jobs:
   review:
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
-    uses: noshpotosh/qa/.github/workflows/quality-review.yml@main
+    uses: noshpotosh/qa/.github/workflows/quality-review.yml@55c20059792644fcdca42b9118c319828fe66d87
     with:
-      agent: claude   # or codex
-    secrets: inherit
-
+      qa_ref: 55c20059792644fcdca42b9118c319828fe66d87
+      agent: codex
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   audit:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       issues: write
-      id-token: write
-    if: github.event_name != 'pull_request'
-    uses: noshpotosh/qa/.github/workflows/quality-audit.yml@main
-    secrets: inherit
+    uses: noshpotosh/qa/.github/workflows/quality-audit.yml@55c20059792644fcdca42b9118c319828fe66d87
+    with:
+      qa_ref: 55c20059792644fcdca42b9118c319828fe66d87
+      agent: codex
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
