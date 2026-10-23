@@ -1,0 +1,5 @@
+{
+  "name": "qa",
+  "version": "0.1.0",
+  "description": "Shared quality standards as Agent Skills, usable from Claude Code, Codex and other agents"
+}

@@ -1,0 +1,43 @@
+# Reusable whole-repo audit for drift that per-PR review misses.
+name: Quality audit
+
+on:
+  workflow_call:
+    inputs:
+      qa_ref:
+        type: string
+        default: main
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Audit the whole repository (not a diff) against the standards in
+            .qa/skills/ (accessibility, css-colors, design-principles,
+            architecture). Focus on drift: raw colors creeping in, layer
+            violations, repeated one-off components. Report the top 10 issues
+            by impact with file:line, in the output format from
+            .qa/skills/quality-review/SKILL.md.
+            Open ONE issue titled "Weekly quality audit" with `gh issue create`,
+            or comment on the existing open one instead of creating a duplicate.
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Bash(gh issue list:*),Bash(gh issue create:*),Bash(gh issue comment:*)"

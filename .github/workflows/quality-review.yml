@@ -1,0 +1,75 @@
+# Reusable PR review. Every agent gets the same instruction: follow
+# .qa/skills/quality-review/SKILL.md. Only the runner step differs.
+name: Quality review
+
+on:
+  workflow_call:
+    inputs:
+      agent:
+        description: claude or codex
+        type: string
+        default: claude
+      qa_ref:
+        description: Branch or tag of noshpotosh/qa to use
+        type: string
+        default: main
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+
+env:
+  REVIEW_PROMPT: |
+    Read .qa/skills/quality-review/SKILL.md and follow it to review PR
+    #${{ github.event.pull_request.number }} in ${{ github.repository }}
+    against origin/${{ github.event.pull_request.base.ref }}.
+    The standards it refers to are in .qa/skills/.
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Load shared standards
+        uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+
+      - name: Review with Claude
+        if: inputs.agent == 'claude'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            ${{ env.REVIEW_PROMPT }}
+            Post the result as ONE comment with `gh pr comment`.
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+
+      - name: Review with Codex
+        if: inputs.agent == 'codex'
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: ${{ env.REVIEW_PROMPT }}
+
+      - name: Post Codex review
+        if: inputs.agent == 'codex'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ steps.codex.outputs.final-message }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+
+      # Grok: add a step here that runs your Grok CLI with $REVIEW_PROMPT and
+      # posts its output the same way as the Codex step.

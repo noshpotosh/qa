@@ -1,0 +1,30 @@
+# Copy into any repo that should follow the shared standards.
+name: Quality
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+  schedule:
+    - cron: "0 14 * * 1"   # Mondays 14:00 UTC
+  workflow_dispatch:
+
+jobs:
+  review:
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    uses: noshpotosh/qa/.github/workflows/quality-review.yml@main
+    with:
+      agent: claude   # or codex
+    secrets: inherit
+
+  audit:
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    if: github.event_name != 'pull_request'
+    uses: noshpotosh/qa/.github/workflows/quality-audit.yml@main
+    secrets: inherit

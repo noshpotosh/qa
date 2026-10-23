@@ -1,0 +1,11 @@
+{
+  "name": "qa",
+  "owner": { "name": "noshpotosh" },
+  "plugins": [
+    {
+      "name": "qa",
+      "source": "./",
+      "description": "Shared quality standards: accessibility, CSS colors, design principles, architecture, plus a reviewer"
+    }
+  ]
+}
