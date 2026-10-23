@@ -1,40 +1,50 @@
 # qa
 
-My code-quality standards in one place, written once and usable by Claude Code, Codex, Grok or any other coding agent.
+Shared quality standards for code, delivery, evidence, assets and hardware. Fourteen tool-neutral skills work with Codex, Claude Code, or any agent that reads Markdown. Deterministic checks enforce PR structure; agents provide evidence-backed advisory reviews.
 
-The standards themselves stay specific (exact rules, examples, thresholds). Only the *packaging* is tool-neutral: every standard is a plain Markdown file in the open Agent Skills format, `skills/<name>/SKILL.md`, which is a folder plus a Markdown file with a short `name`/`description` header. Agents that understand skills load them automatically. Agents that don't can simply be told to read the file.
+## Start locally
 
-## Layout
-- `AGENTS.md`: index of the standards, for any agent
-- `skills/<name>/SKILL.md`: the standards (accessibility, css-colors, design-principles, architecture) and the reviewer (quality-review)
-- `.claude-plugin/`: thin wrapper so Claude Code can install this repo as a plugin
-- `.github/workflows/quality-review.yml`: reusable PR review, choose `agent: claude | codex`
-- `.github/workflows/quality-audit.yml`: reusable weekly whole-repo audit
-- `examples/consumer-repo/`: what to copy into each repo
+Requires Node.js 22 or newer and Git. No package installation is needed.
 
-## Using it from each tool
+```sh
+git clone https://github.com/noshpotosh/qa .qa
+node .qa/bin/qa.mjs init --profile web --ref <full-qa-commit-sha>
+# Inspect the proposed files, then repeat with --apply.
+node .qa/bin/qa.mjs doctor
+node .qa/bin/qa.mjs check --staged
+node .qa/bin/qa.mjs check --base origin/main --head HEAD --pr /path/to/pr.json
+```
 
-| Tool | Local use | In CI |
-|---|---|---|
-| Claude Code | `/plugin marketplace add noshpotosh/qa`, then `/plugin install qa@qa`. Skills load automatically; run `/quality-review` before a PR. | `agent: claude` |
-| Codex | Make the skills visible to Codex (for example, symlink `.qa/skills` into the repo's `.agents/skills`), or rely on AGENTS.md pointing at them. | `agent: codex` |
-| Grok / anything else | AGENTS.md tells the agent where the standards are. Ask it to "follow skills/quality-review/SKILL.md". | Add a step in `quality-review.yml` (placeholder is marked). |
+`init` defaults to a dry run, appends one marked instruction block, and preserves existing files. If configuration or templates already exist, reconcile them manually using the preview. Keep `.qa` pinned as a submodule or an ignored checkout; do not accidentally commit a nested clone. Review the pinned commit before running its tools.
 
-The simplest cross-tool setup in a consuming repo is a git submodule: `git submodule add https://github.com/noshpotosh/qa .qa`.
-After that, every agent can read `.qa/skills/...` and stay pinned to a known version.
+`pr.json` contains `title`, `body`, and `base` (the target branch name). A local check without PR metadata explicitly skips PR-field checks. Exit codes: 0 passed, 1 policy failed, 2 unavailable/configuration error. Validation commands are recorded, never automatically executed by the CLI or model reviewer.
 
-## Adopting it in a repo
-1. Copy `examples/consumer-repo/AGENTS.md` (and `CLAUDE.md`, which just imports AGENTS.md) into the repo and fill in the overrides.
-2. Copy `examples/consumer-repo/.github/workflows/quality.yml` and choose the agent.
-3. Add the matching secret (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`). For Claude, also install the Claude GitHub app.
+## Skills and profiles
 
-This repo must be public, or the consuming repos need Actions access to it (Settings > Actions > General > Access).
+[AGENTS.md](AGENTS.md) indexes all skills. `quality-review` coordinates plan, staged, PR and audit modes. The new skills cover delivery discipline, tests, security/data integrity, reproducibility, evidence, presentation, realtime systems, asset pipelines and hardware validation.
 
-## Per-repo overrides
-Values that differ per repo, such as the token file path or layer names, go in that repo's AGENTS.md. The reviewer skill treats the repo's own file as the final word.
+Profiles: `qa-tooling`, `web`, `static-site`, `realtime-game`, `research`, `assets`, `hardware`. See [configuration](docs/configuration.md) and [adoption inventory](docs/adoption.md).
 
-## Pair with linters
-Agents handle judgment; linters handle rules. Recommended alongside: eslint-plugin-jsx-a11y or axe, stylelint (no raw colors), dependency-cruiser or import-linter (layers and cycles).
+- Codex: expose individual skill folders under `.agents/skills`, or ask it to read `.qa/skills/quality-review/SKILL.md`.
+- Claude Code: `/plugin marketplace add noshpotosh/qa`, `/plugin install qa@qa`, then `/qa:quality-review`.
+- Other agents: read the same skill directly. Grok CI remains an extension point until a CLI is selected.
 
-## Versioning
-Consumers use `@main` by default. Tag releases (`v1`) and pin to a tag once the standards settle, so a wording change can't suddenly change every repo's reviews.
+## CI adoption
+
+The initializer generates a reusable workflow caller with matching immutable SHAs for the workflow and standards. Copy or merge its proposed configuration and PR template. Existing CI still runs the project's tests/builds; QA does not duplicate those jobs.
+
+Add `OPENAI_API_KEY` to the consumer repository for Codex, or select `agent: claude` and add `ANTHROPIC_API_KEY`. This implementation supplies Claude the job's read-only GitHub token; it does not require a separately installed Claude GitHub App. Secrets are owner-managed.
+
+PRs receive a mechanical policy check and one updated review comment. Weekly audits update one tracking issue on Mondays at 14:00 UTC; manual dispatch runs an audit. Untrusted fork PRs get mechanical checks and artifacts without provider secrets or comment writes. Missing credentials, invalid output and timeouts are reported as unavailable reviews.
+
+After validating a pilot, require the observed `QA / policy` check name in branch protection, preserving existing checks. Agent judgments remain advisory. No automatic code fixes, merges, force pushes or historical cleanup are performed.
+
+## Development and release
+
+```sh
+npm test
+npm run check
+actionlint .github/workflows/*.yml
+```
+
+See [migration and security](docs/migration.md), [behavioral evaluation](docs/evaluation.md), and the [validation record](docs/validation.md). The repository's initial release is `v0.1.0`; the `0.2.0` implementation adds nine skills, structured reports, a CLI, provider parity and safer publishing. Live provider acceptance is tracked separately from mechanical CI.

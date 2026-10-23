@@ -124,6 +124,9 @@ jobs:
       - name: Resolve review head
         id: head
         run: node -e "const c=require('./.qa-output/context.json');require('fs').appendFileSync(process.env.GITHUB_OUTPUT,'sha='+c.metadata.head+'\n')"
+      - name: Prepare structured Claude output
+        id: schema
+        run: node -e "const fs=require('fs');fs.appendFileSync(process.env.GITHUB_OUTPUT,'json='+JSON.stringify(JSON.parse(fs.readFileSync('.qa-output/schema.json','utf8')))+'\n')"
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.head.outputs.sha }}
@@ -150,7 +153,9 @@ jobs:
           github_token: ${{ github.token }}
           display_report: false
           prompt: Read .qa-output/prompt.txt and follow its review instructions. Return only the JSON report matching .qa-output/schema.json.
-          claude_args: --tools "Read,Grep,Glob" --max-turns 30
+          claude_args: >-
+            --tools "Read,Grep,Glob" --max-turns 30
+            --json-schema '${{ steps.schema.outputs.json }}'
       - name: Review with Codex
         id: codex
         if: inputs.agent == 'codex' && steps.available.outputs.ready == 'true'
@@ -167,19 +172,13 @@ jobs:
         env:
           PROVIDER: ${{ inputs.agent }}
           CODEX_RESULT: ${{ steps.codex.outputs.final-message }}
-          CLAUDE_FILE: ${{ steps.claude.outputs.execution_file }}
+          CLAUDE_RESULT: ${{ steps.claude.outputs.structured_output }}
         run: |
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           fs.mkdirSync('.qa-result',{recursive:true});
           let text=process.env.CODEX_RESULT || '';
-          if(process.env.PROVIDER==='claude') {
-            try {
-              const raw=JSON.parse(fs.readFileSync(process.env.CLAUDE_FILE,'utf8'));
-              const result=Array.isArray(raw)?raw.findLast(x=>x.type==='result'):raw;
-              text=result.result || '';
-            } catch { text=''; }
-          }
+          if(process.env.PROVIDER==='claude') text=process.env.CLAUDE_RESULT || '';
           fs.writeFileSync('.qa-result/agent.json',text);
           JS
       - uses: actions/upload-artifact@v4

@@ -1,0 +1,36 @@
+[
+  {
+    "id": "stale-round",
+    "skills": ["realtime-systems", "security-data-integrity"],
+    "request": "Review this new input handler; the protocol requires every input to match the active round.",
+    "patch": "+ function accept(input, player) { if (input.playerId !== player.id) return; activeRound.apply(input); }",
+    "expected": "Identify missing round identity validation and a delayed-input scenario; do not claim a test was run."
+  },
+  {
+    "id": "duplicate-test-implementation",
+    "skills": ["test-quality"],
+    "request": "Review whether the regression test proves the production fix.",
+    "patch": "+ // tests/parser.test.js\n+ const parse = s => s.trim().split(',');\n+ assert.deepEqual(parse(' a,b '), ['a','b']);\n// production exports parse from src/parser.js, which the test does not import.",
+    "expected": "Identify that the test bypasses the production implementation; suggest calling the exported parser."
+  },
+  {
+    "id": "honest-visual-gap",
+    "skills": ["delivery-steward", "evidence-quality"],
+    "request": "Review a CSS spacing change with this PR evidence section.",
+    "evidence": "## Visual evidence\nUnavailable: the target mobile browser is not available in this runner. No visual validation is claimed.",
+    "expected": "Accept the explicit structural exception, identify appearance as unverified, and do not invent a rendering defect."
+  },
+  {
+    "id": "generated-asset-import",
+    "skills": ["delivery-steward", "asset-pipeline"],
+    "request": "Review an import consisting of 60,000 generated STEP lines and a 12-line source geometry fix. Generator version, command and a successful reimport report are attached.",
+    "expected": "Separate generated and authored churn; do not reject purely for raw line count or claim independent reimport execution."
+  },
+  {
+    "id": "clean-input-boundary",
+    "skills": ["test-quality", "security-data-integrity"],
+    "request": "Review only this change to exported parseCount. Existing caller accepts integers from 1 through 10.",
+    "patch": "+ export function parseCount(value) { if (!Number.isInteger(value) || value < 1 || value > 10) throw new RangeError('count'); return value; }\n+ // test imports parseCount from production module, checks 1 and 10 and rejects 0, 11, NaN and 1.5.",
+    "expected": "No invented blocker or requirement for unrelated framework changes. State whether execution evidence is supplied."
+  }
+]
