@@ -15,7 +15,7 @@ Validated on October 23, 2026. This record distinguishes implementation checks f
 ## Pending or intentionally deferred
 
 - A live Codex PR assessment, live Codex audit and Claude smoke assessment need owner-managed API secrets. No provider keys were configured in the three pilots at inspection time. Workflow success without a key is not agent acceptance.
-- Fork isolation and malformed/stale result handling have code-level and mocked coverage; no external fork PR was created for a live end-to-end test.
+- Fork isolation was inspected in the workflow conditions; malformed/stale result handling has mocked coverage. No external fork PR was created for a live end-to-end test.
 - Consumer adoption PRs remain unmerged. Enable their required policy check after adoption lands, preserving existing checks. Do not require an absent workflow.
 - The site remote main contains only index.html; the local navigation/physics suite belongs to unpublished work and was not copied. Add its application CI after that source lands. Browser validation additionally needs reproducible Playwright setup.
 - Other project profiles are adoption guidance, not completed migrations or hardware/asset certifications.
