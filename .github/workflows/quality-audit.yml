@@ -1,43 +1,79 @@
-# Reusable whole-repo audit for drift that per-PR review misses.
 name: Quality audit
-
 on:
   workflow_call:
     inputs:
-      qa_ref:
+      agent:
         type: string
-        default: main
+        default: codex
+      qa_ref:
+        description: Exact commit matching the reusable workflow version
+        type: string
+        required: true
     secrets:
       ANTHROPIC_API_KEY:
-        required: true
-
+        required: false
+      OPENAI_API_KEY:
+        required: false
+permissions:
+  contents: read
+  issues: write
 jobs:
   audit:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/quality-engine.yml
+    with:
+      mode: audit
+      agent: ${{ inputs.agent }}
+      qa_ref: ${{ inputs.qa_ref }}
+    secrets: inherit
+  publish:
+    needs: audit
+    if: always() && !cancelled() && needs.audit.outputs.policy_status != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
-      id-token: write
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/checkout@v4
         with:
           repository: noshpotosh/qa
           ref: ${{ inputs.qa_ref }}
           path: .qa
-
-      - uses: anthropics/claude-code-action@v1
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Audit the whole repository (not a diff) against the standards in
-            .qa/skills/ (accessibility, css-colors, design-principles,
-            architecture). Focus on drift: raw colors creeping in, layer
-            violations, repeated one-off components. Report the top 10 issues
-            by impact with file:line, in the output format from
-            .qa/skills/quality-review/SKILL.md.
-            Open ONE issue titled "Weekly quality audit" with `gh issue create`,
-            or comment on the existing open one instead of creating a duplicate.
-          claude_args: |
-            --allowedTools "Read,Grep,Glob,Bash(gh issue list:*),Bash(gh issue create:*),Bash(gh issue comment:*)"
+          name: qa-context-audit
+          path: .qa-output
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: qa-agent-audit
+          path: .qa-result
+      - name: Validate and publish
+        uses: actions/github-script@v7
+        env:
+          MODE: audit
+          ELIGIBLE: ${{ needs.audit.outputs.eligible }}
+        with:
+          script: |
+            const fs = require('fs');
+            const {parseAgent,publishPR,publishAudit} = await import(`${process.cwd()}/.qa/lib/publish.mjs`);
+            const {renderReport,validateReport} = await import(`${process.cwd()}/.qa/lib/report.mjs`);
+            const c=JSON.parse(fs.readFileSync('.qa-output/context.json','utf8'));
+            const policy=validateReport(JSON.parse(fs.readFileSync('.qa-output/policy.json','utf8')));
+            let text='';try{text=fs.readFileSync('.qa-result/agent.json','utf8');}catch{}
+            const agent=parseAgent(text,process.env.MODE==='audit'?10:100);
+            fs.mkdirSync('.qa-result',{recursive:true});
+            fs.writeFileSync('.qa-result/report.json',JSON.stringify({policy,agent},null,2));
+            await core.summary.addRaw(renderReport(policy)+renderReport(agent,{advisory:true})).write();
+            if(process.env.MODE==='pr') {
+              // Fork tokens cannot comment. The summary and artifact remain available.
+              if(process.env.ELIGIBLE==='true') await publishPR(github,{...context.repo,number:c.metadata.number,snapshot:c.metadata,policy,agent});
+            } else await publishAudit(github,{...context.repo,report:agent,head:c.metadata.head});
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-report-audit
+          path: .qa-result/report.json
+          retention-days: 14
