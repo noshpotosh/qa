@@ -6,14 +6,15 @@ import { git } from "../lib/git.mjs";
 import { runProcess, processEnvironment } from "./work-process.mjs";
 
 const quote = JSON.stringify;
-export function profileText({ workspace, directory, common, resources = [], writable = true, network = false }) {
+export function profileText({ workspace, directory, common, resources = [], readRoots = [], protectedPaths = [], writable = true, network = false }) {
   const home = path.join(directory, "scratch");
   fs.mkdirSync(home, { recursive: true, mode: 0o700 });
   const entries = new Map([[":minimal", "read"],
     [common, "read"], [directory, "deny"], [home, "write"]]);
   if (process.platform === "darwin") entries.set("/System/Library/OpenSSL", "read");
+  for (const root of readRoots) entries.set(assertReadRoot(root), "read");
   for (const resource of resources) {
-    entries.set(fs.realpathSync(resource.source), "read");
+    entries.set(assertReadRoot(resource.source), "read");
     entries.set(path.join(workspace, resource.target), "read");
   }
   for (const name of [".codex", ".aws", ".ssh", ".config/gh"]) entries.set(path.join(os.homedir(), name), "deny");
@@ -22,12 +23,21 @@ export function profileText({ workspace, directory, common, resources = [], writ
   filesystem[workspace] = { ".": writable ? "write" : "read", ".git": "read",
     "**/.env*": "deny", ".qa.json": "read", ".qa-work.json": "read",
     ".github": "read", ".codex": "read", "**/AGENTS.md": "deny", "**/CLAUDE.md": "deny" };
+  for (const name of protectedPaths) filesystem[workspace][name] = "read";
   const config = { default_permissions: "qa-run", approval_policy: "never", web_search: "disabled",
     features: { apps: false, multi_agent: false }, mcp_servers: {},
     permissions: { "qa-run": { filesystem, network: { enabled: network } } },
     shell_environment_policy: { inherit: "none", set: { PATH: process.env.PATH || "/usr/bin:/bin", HOME: home } } };
   return Object.entries(config).map(([key, value]) => `${key} = ${inlineTOML(value)}`).join("\n") + "\n";
 
+}
+function assertReadRoot(root) {
+  const source = fs.realpathSync(root);
+  for (const name of [".codex", ".aws", ".ssh", ".config/gh"]) {
+    const credential = path.join(os.homedir(), name);
+    if (source === credential || source.startsWith(credential + path.sep)) throw Error("Credential stores cannot be declared as task inputs");
+  }
+  return source;
 }
 export function sandboxHome(context, options = {}) {
   const directory = path.join(context.directory, `sandbox-${options.writable === false ? "read" : "write"}-${options.network ? "net" : "offline"}`);

@@ -31,11 +31,14 @@ export function previewMilestone(root, config, id) {
   return { ...snapshot, root: path.resolve(root) };
 }
 export function recordAcceptance(root, config, state, operation) {
-  if (!config.adapter) return; // File-backed acceptance lives in the durable journal.
+  if (!config.adapter) return []; // File-backed acceptance lives in the durable journal.
   const result = invokeAdapter(root, config, { operation: "record", milestoneId: state.id,
     operationId: operation.id, expectedRevision: state.sourceRevision,
     task: state.tasks.find((t) => t.id === operation.taskId), receipt: operation.receipt,
-    sourceHead: state.head });
+    sourceHead: state.head, workspace: state.worktree });
   if (result.version !== 1 || typeof result.revision !== "string") throw Error("Invalid adapter record result");
+  const files = result.checkpointFiles || [];
+  if (!Array.isArray(files) || files.some((file) => !config.adapterOutputs.includes(file))) throw Error("Adapter requested unapproved output files");
   state.sourceRevision = result.revision;
+  return files;
 }

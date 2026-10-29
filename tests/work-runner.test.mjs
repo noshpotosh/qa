@@ -104,3 +104,82 @@ test("a budget boundary checkpoints partial work and resumes without resetting a
   assert.equal(next.status, "completed");
   assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 2);
 });
+test("missing tasks are derived and independently reviewed within the frozen scope", async (t) => {
+  const f = fixture(t), proposed = structuredClone(f.snapshot.milestone.tasks[0]);
+  f.snapshot.milestone.tasks = []; savePlan(f);
+  let plans = 0, reviews = 0;
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), plan: async () => { plans++; return { tasks: [proposed] }; },
+    reviewPlan: async () => { reviews++; return { scope: "within-request", report: report() }; },
+  }) });
+  assert.equal(result.status, "completed");
+  assert.equal(plans, 1); assert.equal(reviews, 1);
+});
+test("unavailable required check capabilities block work without an attempt", async (t) => {
+  const f = fixture(t);
+  f.config.capabilities.unity = { argv: ["Unity"], timeoutSeconds: 30 };
+  f.config.checks.test.requires = ["unity"];
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), check: async () => ({ status: "unavailable", code: 2 }),
+    execute: async () => assert.fail("Unavailable work executed"),
+  }) });
+  assert.equal(result.status, "blocked");
+  assert.deepEqual(result.unavailable, [{ id: "fix", missing: ["unity"] }]);
+  assert.equal(loadRun(f.root, "demo").state.states.fix, undefined);
+});
+test("validator source changes cannot become an accepted checkpoint", async (t) => {
+  const f = fixture(t);
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), check: async () => {
+      fs.appendFileSync(path.join(context.workspace, "src/app.mjs"), "// validator mutation\n");
+      return { status: "passed", code: 0 };
+    },
+    review: async () => assert.fail("Mutated validation reached review"),
+  }) });
+  assert.equal(result.status, "blocked");
+  assert.equal(loadRun(f.root, "demo").state.checkpoints.length, 0);
+});
+test("human handoff requires final regression success", async (t) => {
+  const f = fixture(t);
+  f.snapshot.milestone.criteria.push({ id: "device", description: "Device check", kind: "human", done: false, checks: [], evidence: [] });
+  savePlan(f); let count = 0;
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), check: async () => ({ status: ++count === 1 ? "passed" : "unavailable", code: count === 1 ? 0 : 2 }),
+  }) });
+  assert.equal(result.status, "unavailable");
+  assert.match(result.reason, /Final validation/);
+});
+test("repository programs named in approved validation argv are protected", async (t) => {
+  const f = fixture(t);
+  f.config.checks.test.argv = ["node", "src/app.mjs"];
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: fake });
+  assert.equal(result.status, "blocked");
+  assert.equal(loadRun(f.root, "demo").state.checkpoints.length, 0);
+});
+test("scope-rejected derived plans never reach the editor", async (t) => {
+  const f = fixture(t), proposed = structuredClone(f.snapshot.milestone.tasks[0]);
+  f.snapshot.milestone.tasks = []; savePlan(f);
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), plan: async () => ({ tasks: [proposed] }),
+    reviewPlan: async () => ({ scope: "expanded", report: report() }),
+    execute: async () => assert.fail("Rejected plan executed"),
+  }) });
+  assert.equal(result.status, "blocked");
+  assert.equal(loadRun(f.root, "demo").state.tasks.length, 0);
+});
+test("no-progress stop persists across resume", async (t) => {
+  const f = fixture(t), template = structuredClone(f.snapshot.milestone.tasks[0]);
+  f.snapshot.milestone.tasks = []; savePlan(f); let sequence = 0;
+  const executorFactory = (context) => ({ ...fake(context),
+    plan: async () => ({ tasks: [{ ...template, id: `step-${++sequence}` }] }),
+    reviewPlan: async () => ({ scope: "within-request", report: report() }),
+    execute: async () => ({ summary: "No new evidence", evidencePaths: [] }),
+    review: async () => ({ scope: "within-request", report: report(), resolvedSources: [] }),
+  });
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory });
+  assert.equal(result.status, "blocked");
+  assert.equal(sequence, 3);
+  assert.match(result.reason, /no source, artifact or acceptance progress/);
+  await runMilestone(f.root, f.config, "demo", { resume: true, executorFactory });
+  assert.equal(sequence, 3);
+});

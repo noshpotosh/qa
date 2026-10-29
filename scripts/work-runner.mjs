@@ -14,6 +14,8 @@ import { CodexExecutor } from "./work-codex.mjs";
 import { loadConfig, resolveConfig } from "../lib/config.mjs";
 import { diffContext } from "../lib/git.mjs";
 import { checkPolicy } from "../lib/policy.mjs";
+import { checkpointAdapterOutputs } from "./work-checkpoint.mjs";
+import { finishAttestation } from "./work-operator.mjs";
 
 function standards() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills");
@@ -41,12 +43,13 @@ async function deriveTasks(executor, state, milestone) {
   const criteria = pendingPlanning(state, milestone);
   if (!criteria.length || (state.planFailures || 0) >= 3) return false;
   try {
-    const proposal = await executor.plan({ ...milestone, criteria }, state.tasks, state.states);
+    const proposal = await executor.plan({ ...milestone, criteria }, state.tasks, { states: state.states, finalFailure: state.finalFailure, source: state.sourceContext });
     const tasks = validateProposal(proposal, milestone, state.config, state.tasks);
     if (tasks.some((t) => t.criteria.some((id) => !criteria.some((c) => c.id === id)))) throw Error("Proposal retries blocked or unrelated criteria");
     const review = await executor.reviewPlan(milestone, tasks);
     if (review.scope !== "within-request" || review.report.status !== "passed") throw Error("Derived plan did not pass independent scope review");
     state.tasks.push(...tasks);
+    state.planningReason = null;
     return true;
   } catch (e) {
     state.planFailures = (state.planFailures || 0) + 1;
@@ -54,11 +57,14 @@ async function deriveTasks(executor, state, milestone) {
     return false;
   }
 }
-function finishPending(state) {
+function finishPending(state, directory) {
   const operation = state.pending;
   if (!operation) return;
   if (operation.changed.length && !operation.commit) throw Error("Checkpoint commit has not been reconciled");
-  recordAcceptance(state.root, state.config, state, operation);
+  state.codeHead = operation.commit || state.codeHead || state.baseline;
+  const files = recordAcceptance(state.root, state.config, state, operation);
+  checkpointAdapterOutputs(state, directory, operation, files);
+  if (state.receipts[operation.taskId]?.id !== operation.receipt.id) state.generation = (state.generation || 0) + 1;
   state.receipts[operation.taskId] = operation.receipt;
   state.states[operation.taskId].status = "done";
   for (const id of operation.receipt.review.resolvedSources) {
@@ -68,7 +74,76 @@ function finishPending(state) {
     state.revalidation = (state.revalidation || []).filter((criterionId) => criterionId !== id);
   }
   if (!state.checkpoints.some((c) => c.id === operation.id)) state.checkpoints.push({ id: operation.id, task: operation.taskId, commit: state.head });
+  state.noProgress = operation.changed.length || operation.receipt.artifacts.length || operation.receipt.review.resolvedSources.length ? 0 : (state.noProgress || 0) + 1;
   state.pending = null;
+}
+async function validateFinal(executor, context, state, directory, milestone, inputIdentity) {
+  const releases = [];
+  try {
+  for (const capability of [...new Set(milestone.finalChecks.flatMap((id) => state.config.checks[id].requires || []))].sort()) {
+    releases.push(acquireLock(path.join(os.tmpdir(), `qa-capabilities-${process.getuid()}`, capability + ".lock"), { recover: true }));
+  }
+  const before = fingerprint(workspaceSnapshot(state.worktree));
+  const results = await checkSet(executor, state.config, milestone.finalChecks, context);
+  assertInputs(context);
+  if (resourceIdentity(context.resources) !== inputIdentity || fingerprint(workspaceSnapshot(state.worktree)) !== before) throw Error("Final validation changed source or declared inputs");
+  const artifacts = results.every((result) => result.status === "passed")
+    ? captureArtifacts(state.worktree, milestone.finalChecks.flatMap((id) => state.config.checks[id].outputs || [])) : [];
+  state.finalChecks = { head: state.head, codeHead: state.codeHead, generation: state.generation || 0, results,
+    artifacts: retainArtifacts(state.worktree, directory, crypto.randomUUID(), artifacts) };
+  if (results.some((r) => r.status === "unavailable")) { state.status = "unavailable"; state.reason = "Final validation unavailable"; return false; }
+  if (results.every((r) => r.status === "passed")) return true;
+  state.revalidation = milestone.criteria.filter((c) => c.kind === "automated").map((c) => c.id);
+  state.finalFailure = results;
+  saveRun(directory, state, { type: "final-revalidation-needed" });
+  return false;
+  } finally { releases.reverse().forEach((release) => release()); }
+}
+async function inspectCandidate(executor, context, state, directory, task, inputIdentity, before, result) {
+  const candidate = workspaceSnapshot(state.worktree);
+  assertInputs(context);
+  changedFiles(before, candidate, state.milestone, context.protectedPaths);
+  const ids = [...task.checks, ...task.criteria.flatMap((id) => state.milestone.criteria.find((c) => c.id === id).checks)];
+  const checks = await checkSet(executor, state.config, ids, context);
+  if (checks.some((c) => c.status !== "passed")) throw Object.assign(Error("Observed validation failed"), { feedback: checks, terminal: checks.some((c) => c.status === "unavailable") });
+  if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Checks changed source; configure fresh ignored output paths");
+  if (resourceIdentity(context.resources) !== inputIdentity) throw Error("Declared input resources changed during the task");
+  assertInputs(context);
+  const artifacts = captureArtifacts(state.worktree, [...(result.evidencePaths || []),
+    ...ids.flatMap((id) => state.config.checks[id].outputs || [])]);
+  const evidence = { id: crypto.randomUUID(), task: task.id, source: fingerprint(candidate), inputIdentity,
+    summary: result.summary, checks, artifacts, kind: "observed", baseHead: state.head,
+    changedPaths: changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths) };
+  evidence.artifacts = retainArtifacts(state.worktree, directory, evidence.id, artifacts);
+  if (evidence.changedPaths.length) git(state.worktree, ["-c", "core.hooksPath=/dev/null", "add", "--", ...evidence.changedPaths]);
+  const diff = diffContext(state.worktree, { staged: true });
+  evidence.patch = diff.patch; evidence.coverage = diff.coverage;
+  evidence.policy = checkPolicy(diff, context.policy).report;
+  if (evidence.policy.status !== "passed") throw Error("Local QA policy did not pass");
+  assertActive(context);
+  const review = await executor.review(state.milestone, task, evidence);
+  if (review.scope !== "within-request" || review.report.status !== "passed") throw Object.assign(Error("Independent review did not pass"), { feedback: review, terminal: review.scope !== "within-request" || ["unavailable", "skipped"].includes(review.report.status) });
+  if (review.resolvedSources.some((id) => !task.criteria.includes(id) || state.milestone.criteria.find((c) => c.id === id)?.kind !== "automated")) throw Error("Reviewer claimed unrequested or human acceptance");
+  if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Read-only review changed source");
+  const changed = changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths);
+  assertActive(context);
+  evidence.review = review;
+  return { evidence, candidate, changed };
+}
+function commitCandidate(state, directory, task, evidence, candidate, changed) {
+  state.pending = { id: crypto.randomUUID(), taskId: task.id, receipt: evidence, changed, tree: null };
+  if (changed.length) {
+    git(state.worktree, ["-c", "core.hooksPath=/dev/null", "add", "--", ...changed]);
+    if (fingerprint(indexSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Staged tree differs from the validated candidate");
+    state.pending.tree = git(state.worktree, ["write-tree"]).trim();
+    saveRun(directory, state, { type: "checkpoint-prepared", task: task.id });
+    git(state.worktree, ["-c", "core.hooksPath=/dev/null", "commit", "-m", `${task.title}\n\nQA-Operation: ${state.pending.id}`]);
+    state.head = git(state.worktree, ["rev-parse", "HEAD"]).trim();
+    state.pending.commit = state.head;
+  }
+  saveRun(directory, state, { type: "checkpoint", task: task.id });
+  finishPending(state, directory);
+  saveRun(directory, state, { type: "done", task: task.id });
 }
 async function performTask(executor, context, state, directory, task, inputIdentity) {
   const releases = [];
@@ -86,48 +161,9 @@ async function performTask(executor, context, state, directory, task, inputIdent
     saveRun(directory, state, { type: "attempt", task: task.id, attempt: state.states[task.id].attempts });
     const before = workspaceSnapshot(state.worktree);
     assertActive(context);
-    const result = await executor.execute(effectiveMilestone(state, { milestone: state.milestone }), task, state.states[task.id].feedback || null);
-    const candidate = workspaceSnapshot(state.worktree);
-    assertInputs(context);
-    changedFiles(before, candidate, state.milestone);
-    const ids = [...task.checks, ...task.criteria.flatMap((id) => state.milestone.criteria.find((c) => c.id === id).checks)];
-    const checks = await checkSet(executor, state.config, ids, context);
-    if (checks.some((c) => c.status !== "passed")) throw Object.assign(Error("Observed validation failed"), { feedback: checks });
-    if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Checks changed source; configure fresh ignored output paths");
-    if (resourceIdentity(context.resources) !== inputIdentity) throw Error("Declared input resources changed during the task");
-    assertInputs(context);
-    const artifacts = captureArtifacts(state.worktree, [...(result.evidencePaths || []),
-      ...ids.flatMap((id) => state.config.checks[id].outputs || [])]);
-    const evidence = { id: crypto.randomUUID(), task: task.id, source: fingerprint(candidate), inputIdentity,
-      summary: result.summary, checks, artifacts, kind: "observed", baseHead: state.head,
-      changedPaths: changedFiles(headSnapshot(state.worktree), candidate, state.milestone) };
-    evidence.artifacts = retainArtifacts(state.worktree, directory, evidence.id, artifacts);
-    if (evidence.changedPaths.length) git(state.worktree, ["-c", "core.hooksPath=/dev/null", "add", "--", ...evidence.changedPaths]);
-    const diff = diffContext(state.worktree, { staged: true });
-    evidence.patch = diff.patch; evidence.coverage = diff.coverage;
-    evidence.policy = checkPolicy(diff, context.policy).report;
-    if (evidence.policy.status !== "passed") throw Error("Local QA policy did not pass");
-    assertActive(context);
-    const review = await executor.review(state.milestone, task, evidence);
-    if (review.scope !== "within-request" || review.report.status !== "passed") throw Object.assign(Error("Independent review did not pass"), { feedback: review, terminal: review.scope !== "within-request" || ["unavailable", "skipped"].includes(review.report.status) });
-    if (review.resolvedSources.some((id) => !task.criteria.includes(id) || state.milestone.criteria.find((c) => c.id === id)?.kind !== "automated")) throw Error("Reviewer claimed unrequested or human acceptance");
-    if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Read-only review changed source");
-    const changed = changedFiles(headSnapshot(state.worktree), candidate, state.milestone);
-    assertActive(context);
-    evidence.review = review;
-    state.pending = { id: crypto.randomUUID(), taskId: task.id, receipt: evidence, changed, tree: null };
-    if (changed.length) {
-      git(state.worktree, ["-c", "core.hooksPath=/dev/null", "add", "--", ...changed]);
-      if (fingerprint(indexSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Staged tree differs from the validated candidate");
-      state.pending.tree = git(state.worktree, ["write-tree"]).trim();
-      saveRun(directory, state, { type: "checkpoint-prepared", task: task.id });
-      git(state.worktree, ["-c", "core.hooksPath=/dev/null", "commit", "-m", `${task.title}\n\nQA-Operation: ${state.pending.id}`]);
-      state.head = git(state.worktree, ["rev-parse", "HEAD"]).trim();
-      state.pending.commit = state.head;
-    }
-    saveRun(directory, state, { type: "checkpoint", task: task.id });
-    finishPending(state);
-    saveRun(directory, state, { type: "done", task: task.id });
+    const result = await executor.execute(effectiveMilestone(state, { milestone: state.milestone }), task, { previous: state.states[task.id].feedback || null, source: state.sourceContext });
+    const { evidence, candidate, changed } = await inspectCandidate(executor, context, state, directory, task, inputIdentity, before, result);
+    commitCandidate(state, directory, task, evidence, candidate, changed);
     return true;
   } catch (e) {
     if (state.pending) throw e; // Resume must reconcile a possibly published local commit first.
@@ -150,11 +186,48 @@ function quarantine(context, state) {
   state.worktree = next; context.workspace = next;
   provisionInputs(context);
 }
+async function executeLoop(executor, context, state, directory, inputIdentity, onProgress) {
+  const { now, deadline, signal, available } = context, config = state.config, root = state.root, id = state.id;
+  let completed = 0;
+  while (now() < deadline && completed < config.tasks && !signal?.aborted) {
+    const current = readMilestone(root, config, id);
+    reconcileRun(state, current, config);
+    state.milestone = current.milestone;
+    state.sourceContext = current.context || null;
+    const milestone = effectiveMilestone(state, current);
+    if (milestone.criteria.filter((c) => c.kind === "automated").every((c) => c.done)) {
+      if (await validateFinal(executor, context, state, directory, milestone, inputIdentity)) {
+        state.status = milestone.criteria.every((c) => c.done) ? "completed" : "awaiting-human"; break;
+      }
+      if (state.status === "unavailable") break;
+      continue;
+    }
+    const tasks = state.tasks.map((task) => ({ ...task, capabilities: [...new Set([...task.capabilities,
+      ...[...task.checks, ...task.criteria.flatMap((id) => milestone.criteria.find((c) => c.id === id).checks)]
+        .flatMap((id) => config.checks[id]?.requires || [])])] }));
+    const ready = selectReady(milestone, tasks, state.states, available);
+    if (!ready.length) {
+      if (await deriveTasks(executor, state, milestone)) { saveRun(directory, state, { type: "planned" }); continue; }
+      state.status = milestone.criteria.filter((c) => !c.done).every((c) => c.kind === "human") ? "awaiting-human" : "blocked";
+      break;
+    }
+    const task = ready[0]; onProgress({ task: task.id, phase: "execute" });
+    if (await performTask(executor, context, state, directory, task, inputIdentity)) {
+      completed++;
+      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = "Three tasks produced no source, artifact or acceptance progress"; break; }
+    }
+    else if (state.states[task.id]?.status === "blocked" && git(state.worktree, ["status", "--porcelain"]).trim()) {
+      quarantine(context, state);
+      saveRun(directory, state, { type: "quarantined", task: task.id });
+    }
+  }
+}
 export async function runMilestone(root, config, id, { approve = false, resume = false,
   executorFactory = (context, options) => new CodexExecutor(context, options), now = Date.now,
   signal, onProgress = () => {} } = {}) {
   if (!approve && !resume) throw Error("Use --approve after reviewing the milestone plan");
   const deadline = now() + config.minutes * 60000;
+  const resources = config.resources.map((resource) => ({ ...resource, source: path.resolve(root, resource.source) }));
   const release = acquireLock(storePath(root, id) + ".lock", { recover: resume });
   let state, directory;
   try {
@@ -166,22 +239,28 @@ export async function runMilestone(root, config, id, { approve = false, resume =
       ({ state, directory } = createRun(root, snapshot, config));
     }
     reconcileRun(state, snapshot, config);
+    if (state.inputIdentity && resourceIdentity(resources) !== state.inputIdentity) throw Error("Declared input identities changed; pending acceptance was not replayed");
+    if (state.operatorPending) finishAttestation(root, config, state, directory);
     if (state.pending) {
       if (state.pending.changed.length && !state.pending.commit) {
         state.states[state.pending.taskId].status = "ready";
         state.pending = null;
         saveRun(directory, state, { type: "uncommitted-candidate-retained-for-revalidation" });
-      } else { finishPending(state); saveRun(directory, state, { type: "recovered-checkpoint" }); }
+      } else { finishPending(state, directory); saveRun(directory, state, { type: "recovered-checkpoint" }); }
     }
-    const context = { workspace: state.worktree, directory, common: path.dirname(path.dirname(directory)),
-      resources: config.resources, codex: config.codex, model: config.model, checks: config.checks,
-      capabilities: config.capabilities, standards: standards(), deadline, now, signal };
+    const context = { workspace: state.worktree, sourceRoot: state.root, baseline: state.baseline, directory, common: path.dirname(path.dirname(directory)),
+      resources, codex: config.codex, model: config.model, checks: config.checks,
+      capabilities: config.capabilities, standards: standards(), deadline, now, signal,
+      readRoots: config.readRoots.map((p) => path.resolve(root, p)), protectedPaths: [config.plan, ...config.protectedPaths, ...config.adapterOutputs,
+        ...[config.adapter, ...Object.values(config.checks), ...Object.values(config.capabilities)].filter(Boolean)
+          .flatMap((command) => command.argv).filter((arg) => !path.isAbsolute(arg) && !arg.startsWith("-") &&
+            fs.existsSync(path.resolve(root, arg)) && fs.statSync(path.resolve(root, arg)).isFile())] };
     context.policy = fs.existsSync(path.join(root, ".qa.json")) ? loadConfig(path.join(root, ".qa.json")) : resolveConfig();
     for (const file of git(state.worktree, ["ls-files", "-z", "--", "*AGENTS.md", "*CLAUDE.md"]).split("\0").filter(Boolean)) {
       context.standards += `\nRepository instructions at ${file} (apply to that subtree):\n${fs.readFileSync(path.join(state.worktree, file), "utf8")}\n`;
     }
     provisionInputs(context);
-    const inputIdentity = resourceIdentity(config.resources);
+    const inputIdentity = resourceIdentity(resources);
     if (state.inputIdentity && state.inputIdentity !== inputIdentity) throw Error("Declared input identities changed; previous receipts cannot be silently reused");
     state.inputIdentity = inputIdentity;
     const processOptions = () => ({ timeoutMs: Math.min(1800000, Math.max(1, deadline - now())), signal,
@@ -194,36 +273,12 @@ export async function runMilestone(root, config, id, { approve = false, resume =
       if ((await executor.check(command)).status === "passed") available.push(name);
     }
     state.available = available;
-    let completed = 0;
+    context.available = available;
+    if (config.requiredCapabilities.some((name) => !available.includes(name))) throw Error(`Required capabilities unavailable: ${config.requiredCapabilities.filter((name) => !available.includes(name)).join(", ")}`);
+    if (state.noProgress >= 3) return handoff(state, effectiveMilestone(state, snapshot), available);
     state.status = "running";
-    while (now() < deadline && completed < config.tasks && !signal?.aborted) {
-      const current = readMilestone(root, config, id);
-      reconcileRun(state, current, config);
-      state.milestone = current.milestone;
-      const milestone = effectiveMilestone(state, current);
-      if (milestone.criteria.every((c) => c.done)) {
-        const before = fingerprint(workspaceSnapshot(state.worktree));
-        const finalChecks = await checkSet(executor, config, milestone.finalChecks, context);
-        state.finalChecks = { head: state.head, results: finalChecks };
-        if (finalChecks.every((r) => r.status === "passed") && fingerprint(workspaceSnapshot(state.worktree)) === before) { state.status = "completed"; break; }
-        state.revalidation = milestone.criteria.filter((c) => c.kind === "automated").map((c) => c.id);
-        state.finalFailure = finalChecks;
-        saveRun(directory, state, { type: "final-revalidation-needed" });
-        continue;
-      }
-      const ready = selectReady(milestone, state.tasks, state.states, available);
-      if (!ready.length) {
-        if (await deriveTasks(executor, state, milestone)) { saveRun(directory, state, { type: "planned" }); continue; }
-        state.status = milestone.criteria.filter((c) => !c.done).every((c) => c.kind === "human") ? "awaiting-human" : "blocked";
-        break;
-      }
-      const task = ready[0]; onProgress({ task: task.id, phase: "execute" });
-      if (await performTask(executor, context, state, directory, task, inputIdentity)) completed++;
-      else if (state.states[task.id]?.status === "blocked" && git(state.worktree, ["status", "--porcelain"]).trim()) {
-        quarantine(context, state);
-        saveRun(directory, state, { type: "quarantined", task: task.id });
-      }
-    }
+    state.reason = null;
+    await executeLoop(executor, context, state, directory, inputIdentity, onProgress);
     if (state.status === "running") state.status = signal?.aborted ? "interrupted" : "budget-paused";
     saveRun(directory, state, { type: "handoff", status: state.status });
     return handoff(state, effectiveMilestone(state, { milestone: state.milestone }), available);

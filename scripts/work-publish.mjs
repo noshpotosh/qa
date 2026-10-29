@@ -7,10 +7,11 @@ import { acquireLock, storePath, loadRun, saveRun } from "./work-store.mjs";
 
 export function publishMilestone(root, id) {
   const release = acquireLock(storePath(root, id) + ".lock", { recover: true });
-  const { state, directory } = loadRun(root, id);
+  let state, directory;
   const gh = (args) => execFileSync("gh", args, { cwd: root, encoding: "utf8", timeout: 60000,
     stdio: ["ignore", "pipe", "pipe"] }).trim();
   try {
+    ({ state, directory } = loadRun(root, id));
     if (state.pending || !state.checkpoints.length || state.head === state.baseline) throw Error("No reconciled code checkpoints to publish");
     if (git(state.worktree, ["rev-parse", "HEAD"]).trim() !== state.head) throw Error("Owned branch changed since review");
     const config = loadConfig(path.join(root, ".qa.json")), sections = config.sections;
@@ -29,8 +30,10 @@ export function publishMilestone(root, id) {
     saveRun(directory, state, { type: "published", url });
     return state.publication;
   } catch (e) {
-    state.publication = { status: "unavailable", reason: e.message };
-    saveRun(directory, state, { type: "publication-unavailable" });
+    if (state) {
+      state.publication = { status: "unavailable", reason: e.message };
+      saveRun(directory, state, { type: "publication-unavailable" });
+    }
     throw e;
   } finally { release(); }
 }

@@ -20,7 +20,7 @@ export async function workCli(positionals, values) {
     try {
       const result = await runMilestone(root, config, id, { approve: !!values.approve, resume: operation === "resume", signal: abort.signal,
         onProgress: (event) => console.error(`${event.phase}: ${event.task}`) });
-      if (config.publication === "run-end" || (config.publication === "milestone-end" && result.status === "completed")) {
+      if ((config.publication === "run-end" && !["budget-paused", "interrupted"].includes(result.status)) || (config.publication === "milestone-end" && result.status === "completed")) {
         try { result.publication = publishMilestone(root, id); }
         catch (e) { result.publication = { status: "unavailable", reason: e.message }; }
       }

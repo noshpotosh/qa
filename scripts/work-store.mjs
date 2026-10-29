@@ -60,6 +60,7 @@ export function createRun(root, snapshot, config) {
   if (!config.enabled) throw Error("Milestone execution is disabled; enable work explicitly");
   if (git(root, ["status", "--porcelain", "-uall"]).trim()) throw Error("A reviewed clean Git baseline is required; existing work was preserved");
   const milestone = snapshot.milestone, directory = storePath(root, milestone.id);
+  if (milestone.scope.includes("Replace this text with") || milestone.criteria.some((criterion) => criterion.description.startsWith("Replace with an observable"))) throw Error("Replace the milestone scaffold with approved scope and acceptance criteria before running");
   if (fs.existsSync(directory)) throw Error("A run already exists; use resume or status");
   const baseline = git(root, ["rev-parse", "HEAD"]).trim();
   const worktree = path.join(root, ".qa-worktrees", milestone.id);
@@ -74,7 +75,7 @@ export function createRun(root, snapshot, config) {
   }
   git(root, ["worktree", "add", "-b", branch, worktree, baseline]);
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const state = { version: 1, id: milestone.id, root, worktree, branch, baseline, head: baseline,
+  const state = { version: 1, id: milestone.id, root, worktree, branch, baseline, head: baseline, codeHead: baseline,
     approval: approvalIdentity(milestone, config), config, milestone, sourceRevision: snapshot.revision,
     tasks: milestone.tasks, states: {}, accepted: {}, receipts: {}, failureKeys: {},
     checkpoints: [], events: [], status: "ready", pending: null, processes: [] };
@@ -88,12 +89,14 @@ export function reconcileRun(state, snapshot, config) {
   const head = git(state.worktree, ["rev-parse", "HEAD"]).trim();
   if (head !== state.head) {
     const message = git(state.worktree, ["show", "-s", "--format=%B", "HEAD"]);
-    if (!state.pending || !message.includes(`QA-Operation: ${state.pending.id}`) ||
+    const intent = state.operatorPending?.metadata && !state.operatorPending.metadata.commit ? state.operatorPending.metadata
+      : state.pending?.metadata && !state.pending.metadata.commit ? state.pending.metadata : state.pending;
+    if (!intent || !message.includes(`QA-Operation: ${intent.id}`) ||
         git(state.worktree, ["rev-parse", "HEAD^" ]).trim() !== state.head ||
-        git(state.worktree, ["rev-parse", "HEAD^{tree}"]).trim() !== state.pending.tree) {
+        git(state.worktree, ["rev-parse", "HEAD^{tree}"]).trim() !== intent.tree) {
       throw Error("Workspace head changed outside the recorded operation");
     }
-    state.head = head; state.pending.commit = head;
+    state.head = head; intent.commit = head;
   }
   state.processes = [];
 }
