@@ -105,7 +105,7 @@ async function inspectCandidate(executor, context, state, directory, task, input
   changedFiles(before, candidate, state.milestone, context.protectedPaths);
   const ids = [...task.checks, ...task.criteria.flatMap((id) => state.milestone.criteria.find((c) => c.id === id).checks)];
   const checks = await checkSet(executor, state.config, ids, context);
-  if (checks.some((c) => c.status !== "passed")) throw Object.assign(Error("Observed validation failed"), { feedback: checks, terminal: checks.some((c) => c.status === "unavailable") });
+  if (checks.some((c) => c.status !== "passed")) throw Object.assign(Error("Observed validation failed"), { feedback: checks, terminal: checks.some((c) => c.status === "unavailable"), unavailable: checks.some((c) => c.status === "unavailable") });
   if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Checks changed source; configure fresh ignored output paths");
   if (resourceIdentity(context.resources) !== inputIdentity) throw Error("Declared input resources changed during the task");
   assertInputs(context);
@@ -273,7 +273,8 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     await executor.doctor();
     if (resume && retryUnavailable) {
       for (const [task, attempt] of Object.entries(state.states)) {
-        const unavailable = attempt.unavailable || /^Codex (execute|review) unavailable:/.test(attempt.reason || "");
+        const unavailable = attempt.unavailable || /^Codex (execute|review) unavailable:/.test(attempt.reason || "") ||
+          (Array.isArray(attempt.feedback) && attempt.feedback.some((check) => check.status === "unavailable"));
         if (attempt.status === "blocked" && unavailable && attempt.attempts < config.attempts && (state.failureKeys[attempt.key] || 0) < config.attempts) {
           attempt.status = "ready";
           saveRun(directory, state, { type: "unavailable-retry-requested", task, attempts: attempt.attempts });

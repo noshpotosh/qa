@@ -42,8 +42,9 @@ node .qa/bin/qa.mjs milestone status milestone-1
 node .qa/bin/qa.mjs milestone resume milestone-1
 ```
 
-After repairing unavailable executor infrastructure, use `milestone resume ID
---retry-unavailable` to retry only tasks stopped by executor unavailability.
+After repairing unavailable execution or validation infrastructure, use
+`milestone resume ID --retry-unavailable` to retry only tasks stopped by reported
+unavailability.
 Prior attempts and equivalent-task failure limits are retained; exhausted,
 scope-rejected and ordinary validation-failed tasks are not reset.
 

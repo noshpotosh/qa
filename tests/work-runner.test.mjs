@@ -214,3 +214,14 @@ test("explicit unavailable retry preserves the attempt budget and instruction ov
   assert.equal(result.status, "completed");
   assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 2);
 });
+test("unavailable validation can be retried explicitly after repairing its toolchain", async (t) => {
+  const f = fixture(t);
+  const first = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), check: async () => ({ status: "unavailable", code: 2, output: "Toolchain unavailable" }),
+  }) });
+  assert.equal(first.status, "blocked");
+  assert.equal(loadRun(f.root, "demo").state.states.fix.unavailable, true);
+  const result = await runMilestone(f.root, f.config, "demo", { resume: true, retryUnavailable: true, executorFactory: fake });
+  assert.equal(result.status, "completed");
+  assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 2);
+});
