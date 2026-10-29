@@ -1,5 +1,34 @@
 # v0.2.0 validation record
 
+## Local milestone runner — October 29, 2026
+
+- 72 automated cases: 70 passed, two Docker cases explicitly skipped locally.
+  `npm run check`, actionlint 1.7.12 and `git diff --check` passed. Tests cover
+  frozen scope, task derivation/scope rejection, dirty-baseline refusal, persisted
+  attempts, unavailable check capabilities, source-mutating checks, final
+  regression before human handoff, no-progress stops, isolated Git checkpoints,
+  interruption recovery and adapter metadata reconciliation.
+- A real macOS Codex CLI pilot passed at implementation commit `19c7560` using
+  the existing account login, actual command sandbox and separate model reviews.
+  A real assertion failed on the baseline; two accepted task checkpoints survived
+  separate invocations and ended at one human handoff after final checks. They
+  share one code commit: the second task verified retained observation evidence.
+  The original checkout remained unchanged. The sanitized
+  [pilot receipt](../examples/validation/local-milestone-pilot.json) records the
+  candidate, checks and artifact hashes. Provider task derivation and Linux
+  sandbox acceptance were not part of this live pilot.
+- The isolated THPS4 integration's committed-baseline Tracker suite passed all
+  31 tests with loopback sockets enabled. The baseline capability correctly
+  rejected missing/different reviewed Unity inputs. Tracker revision 115 was
+  observed locally at Milestone 3 66/66, Milestone 4 1/40; this is historical
+  tracker evidence, not a new game acceptance run.
+- THPS4 execution remains disabled. Its original dirty checkout was preserved.
+  Tracker CAS/replay/seed behavior has controlled-transport tests; no live tracker
+  write, Unity run, native capture or device acceptance was performed. A clean
+  reviewed source baseline, the next approved milestone and configured producers
+  are prerequisites for the THPS4 live rehearsal. Existing Actions repair/App
+  acceptance remains pending separately.
+
 ## Adoption and requested repair implementation — October 28, 2026
 
 - Local automated coverage exercises release-archive installation, non-default

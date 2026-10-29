@@ -37,11 +37,13 @@ test("release archive installs without a nested Git checkout and upgrades only m
   const detected = inspectRepository(path.join(consumer, "sub"));
   assert.equal(detected.branch, "develop");
   assert.equal(detected.profile, "static-site");
-  const options = { branch: detected.branch, profile: detected.profile, ref: release.sourceSha, runtimeRoot: runtime };
+  const options = { branch: detected.branch, profile: detected.profile, ref: release.sourceSha, runtimeRoot: runtime, milestones: true };
   initialize(consumer, options);
   assert(!fs.existsSync(path.join(consumer, ".qa")));
   initialize(consumer, { ...options, apply: true });
   assert(!fs.existsSync(path.join(consumer, ".qa/.git")));
+  assert(fs.existsSync(path.join(consumer, ".qa/templates/milestone-work.json")));
+  assert(fs.existsSync(path.join(consumer, ".qa-work.json")));
   assert(fs.readFileSync(path.join(consumer, ".gitignore"), "utf8").includes("/.qa/"));
   assert(fs.readFileSync(path.join(consumer, "AGENTS.md"), "utf8").startsWith("Local instructions"));
   assert(initialize(consumer, options).every((c) => c.action === "preserve"));

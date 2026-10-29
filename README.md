@@ -24,7 +24,11 @@ node .qa/bin/qa.mjs check --base origin/main --head HEAD --pr /path/to/pr.json
 
 Release archives are built from committed source with `node scripts/package-release.mjs /tmp/qa-release`. The tag workflow tests, packages and publishes archives on future version tags; no new release is implied by these instructions. Review the pinned source before running its tools. `doctor` separates local validity from credentials and historical live review evidence; `--remote` reads GitHub through your existing `gh` login and never retrieves secret values.
 
-`pr.json` contains `title`, `body`, and `base` (the target branch name). A local check without PR metadata explicitly skips PR-field checks. Exit codes: 0 passed, 1 policy failed, 2 unavailable/configuration error. Validation commands are recorded, never automatically executed by the CLI or model reviewer.
+`pr.json` contains `title`, `body`, and `base` (the target branch name). A local check without PR metadata explicitly skips PR-field checks. Exit codes: 0 passed, 1 policy failed, 2 unavailable/configuration error. Policy validation commands are recorded; policy/report libraries and model reviewers never execute them. Opt-in milestone execution runs explicitly configured checks through its local adapter.
+
+## Continue an approved milestone
+
+Use `init --milestones` to propose a disabled local execution scaffold. Define and commit a bounded scope and meaningful checks, enable it, then run `qa milestone run ID --approve`. The runner derives ready tasks, edits in an isolated worktree, validates and requests independent reviews until completion, its budget, a blocker or human acceptance. `resume` retains progress and retry limits. See [milestone setup and commands](docs/milestones.md) and the [THPS4 tracker example](examples/thps4/README.md). Local runs use existing Codex CLI authentication; they require neither Actions secrets nor a publishing App.
 
 ## Skills and profiles
 

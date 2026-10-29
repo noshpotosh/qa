@@ -10,6 +10,7 @@ import { renderReport } from "../lib/report.mjs";
 import { initialize } from "../lib/init.mjs";
 import { inspectRepository, sourceRef } from "../lib/install.mjs";
 import { diagnose } from "../scripts/doctor.mjs";
+import { diagnoseMilestones } from "../scripts/work-doctor.mjs";
 import { workCli } from "../scripts/work-cli.mjs";
 try {
   const { values: v, positionals } = parseArgs({
@@ -27,6 +28,7 @@ try {
       apply: { type: "boolean" },
       remote: { type: "boolean" },
       repairs: { type: "boolean" },
+      milestones: { type: "boolean" },
       approve: { type: "boolean" },
       criterion: { type: "string" },
       evidence: { type: "string" },
@@ -50,6 +52,7 @@ try {
       apply: v.apply,
       runtimeRoot,
       repairs: v.repairs,
+      milestones: v.milestones,
     });
     const summary = { applied: !!v.apply, detected, sourceSha: ref, changes: changes.map(({ content, ...c }) => c) };
     if (v.json) console.log(JSON.stringify(summary, null, 2));
@@ -59,6 +62,7 @@ try {
       console.log(`${changes.filter((c) => c.path.startsWith(".qa/") && c.action !== "preserve").length} local runtime changes. Existing workflows: ${detected.workflows.join(", ") || "none"}.`);
       if (!v.apply) console.log("Confirm these settings by repeating with --apply. Use --json for a machine-readable summary.");
       if (v.repairs) console.log("Repair workflow proposed. Enable repair in trusted .qa.json with explicit validation commands, required checks and a digest-pinned container; configure owner-managed OPENAI_API_KEY, QA_APP_ID and QA_APP_PRIVATE_KEY. See docs/repairs.md in the source repository.");
+      if (v.milestones) console.log("Milestone execution remains disabled. Define scope, paths and meaningful checks in .qa-work.json/.qa.json; enable work, review the plan, then run with --approve. Existing configuration is preserved; merge proposals when needed.");
       for (const c of changes.filter((c) => c.conflict)) console.log(`\nProposed ${c.path}:\n${c.content}`);
     }
   } else if (command === "check") {
@@ -95,9 +99,10 @@ try {
       "API credentials, live checks and repository protection require separate verification.",
     );
     console.log(JSON.stringify(diagnose(repoRoot, { remote: v.remote, config: configFile }), null, 2));
+    if (v.milestones) console.log(JSON.stringify({ milestones: await diagnoseMilestones(repoRoot, c.work) }, null, 2));
   } else
     throw Error(
-      "Usage: qa init [--profile NAME] [--branch NAME] [--repairs] [--apply] [--json] | qa check (--staged | --base REF [--head REF]) [--pr JSON] [--json] | qa doctor [--remote]",
+      "Usage: qa init [--profile NAME] [--branch NAME] [--repairs] [--milestones] [--apply] [--json] | qa milestone (plan|run|resume|status|accept|publish) ID | qa check (--staged | --base REF [--head REF]) [--pr JSON] [--json] | qa doctor [--remote] [--milestones]",
     );
 } catch (error) {
   console.error(`QA unavailable: ${error.message}`);
