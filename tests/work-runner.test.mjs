@@ -225,3 +225,29 @@ test("unavailable validation can be retried explicitly after repairing its toolc
   assert.equal(result.status, "completed");
   assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 2);
 });
+test("controller validation recovery completes the same editor attempt at its hard budget", async (t) => {
+  const f = fixture(t);f.config.attempts = 1;
+  await assert.rejects(runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), check: async () => { throw Object.assign(Error("controller buffer unavailable"), { code: "ENOBUFS" }); },
+  }) }), /controller buffer/);
+  assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 1);
+  const result = await runMilestone(f.root, f.config, "demo", { resume: true, executorFactory: (context) => ({
+    ...fake(context), execute: async () => assert.fail("A new edit invocation exceeded the hard budget"),
+  }) });
+  assert.equal(result.status, "completed");
+  assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 1);
+  assert.equal(loadRun(f.root, "demo").state.validationCandidate, null);
+});
+test("a changed retained validation candidate is rejected without a new edit invocation", async (t) => {
+  const f = fixture(t);f.config.attempts = 1;
+  await assert.rejects(runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), check: async () => { throw Object.assign(Error("controller buffer unavailable"), { code: "ENOBUFS" }); },
+  }) }));
+  const { state } = loadRun(f.root, "demo");
+  fs.writeFileSync(path.join(state.worktree, "src/app.mjs"), "External changed candidate\n");
+  const result = await runMilestone(f.root, f.config, "demo", { resume: true, executorFactory: (context) => ({
+    ...fake(context), execute: async () => assert.fail("Changed candidate reached editing"),
+  }) });
+  assert.equal(result.status, "blocked");
+  assert.equal(loadRun(f.root, "demo").state.checkpoints.length, 0);
+});

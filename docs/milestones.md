@@ -47,6 +47,12 @@ After repairing unavailable execution or validation infrastructure, use
 unavailability.
 Prior attempts and equivalent-task failure limits are retained; exhausted,
 scope-rejected and ordinary validation-failed tasks are not reset.
+Completed editor output is checkpointed before validation. A controller buffer
+failure can resume checks/review of that exact candidate without another edit
+invocation. For an initial-version `spawnSync git ENOBUFS` failure, use
+`milestone recover-validation ID --task TASK`, then `milestone resume ID`.
+Recovery requires an unambiguous original editor result and unchanged source;
+it retains all attempts and does not reopen rejected validation or scope.
 
 `plan` reads the contract without invoking the model. Empty task lists are valid:
 the runner derives small tasks inside the frozen scope and submits the proposed

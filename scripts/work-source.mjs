@@ -13,6 +13,12 @@ export function invokeAdapter(root, config, request) {
   });
   return JSON.parse(output);
 }
+export function authorityPaths(root, config) {
+  return [config.plan, ...config.protectedPaths, ...config.adapterOutputs,
+    ...[config.adapter, ...Object.values(config.checks), ...Object.values(config.capabilities)].filter(Boolean)
+      .flatMap((command) => command.argv).filter((arg) => !path.isAbsolute(arg) && !arg.startsWith("-") &&
+        fs.existsSync(path.resolve(root, arg)) && fs.statSync(path.resolve(root, arg)).isFile())];
+}
 export function readMilestone(root, config, id) {
   identifier(id);
   if (config.adapter) {

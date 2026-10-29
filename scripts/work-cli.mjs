@@ -8,11 +8,16 @@ import { effectiveMilestone, handoff } from "../lib/work-state.mjs";
 import { runMilestone } from "./work-runner.mjs";
 import { acceptCriterion } from "./work-operator.mjs";
 import { publishMilestone } from "./work-publish.mjs";
+import { recoverValidation } from "./work-recovery.mjs";
 
 export async function workCli(positionals, values) {
   const root = inspectRepository(process.cwd()).root;
   const config = loadConfig(values.config || path.join(root, ".qa.json")).work;
   const [operation, id] = positionals;
+  if (operation === "recover-validation") {
+    if (!values.task) throw Error("recover-validation requires --task ID");
+    return recoverValidation(root, config, id, values.task);
+  }
   if (["run", "resume"].includes(operation)) {
     const abort = new AbortController();
     const stop = () => abort.abort();

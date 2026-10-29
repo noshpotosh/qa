@@ -9,7 +9,7 @@ import { effectiveMilestone, startAttempt, failAttempt, handoff } from "../lib/w
 import { createRun, loadRun, saveRun, storePath, acquireLock, reconcileRun } from "./work-store.mjs";
 import { workspaceSnapshot, headSnapshot, indexSnapshot, changedFiles, captureArtifacts, retainArtifacts, resourceIdentity } from "./work-evidence.mjs";
 import { provisionInputs, assertInputs } from "./work-sandbox.mjs";
-import { readMilestone, recordAcceptance } from "./work-source.mjs";
+import { readMilestone, recordAcceptance, authorityPaths } from "./work-source.mjs";
 import { CodexExecutor } from "./work-codex.mjs";
 import { loadConfig, resolveConfig } from "../lib/config.mjs";
 import { diffContext } from "../lib/git.mjs";
@@ -76,6 +76,7 @@ function finishPending(state, directory) {
   if (!state.checkpoints.some((c) => c.id === operation.id)) state.checkpoints.push({ id: operation.id, task: operation.taskId, commit: state.head });
   state.noProgress = operation.changed.length || operation.receipt.artifacts.length || operation.receipt.review.resolvedSources.length ? 0 : (state.noProgress || 0) + 1;
   state.pending = null;
+  state.validationCandidate = null;
 }
 async function validateFinal(executor, context, state, directory, milestone, inputIdentity) {
   const releases = [];
@@ -152,22 +153,36 @@ async function performTask(executor, context, state, directory, task, inputIdent
     for (const capability of [...task.capabilities].sort()) {
       releases.push(acquireLock(path.join(os.tmpdir(), `qa-capabilities-${process.getuid()}`, capability + ".lock"), { recover: true }));
     }
-    startAttempt(state, task);
+    const replay = state.validationCandidate?.taskId === task.id ? state.validationCandidate : null;
+    if (replay) {
+      if (replay.attempt !== state.states[task.id].attempts || replay.head !== state.head || replay.snapshot !== fingerprint(workspaceSnapshot(state.worktree))) throw Error("Retained validation candidate changed");
+      state.states[task.id].status = "running";
+    } else startAttempt(state, task);
     const previousOutput = path.join(state.worktree, ".qa-output");
     if (fs.existsSync(previousOutput)) {
       const archive = path.join(directory, "attempt-outputs", `${task.id}-${state.states[task.id].attempts}-${crypto.randomUUID()}`);
       fs.mkdirSync(path.dirname(archive), { recursive: true });
       fs.cpSync(previousOutput, archive, { recursive: true, dereference: false });
     }
-    saveRun(directory, state, { type: "attempt", task: task.id, attempt: state.states[task.id].attempts });
+    saveRun(directory, state, { type: replay ? "validation-continuation" : "attempt", task: task.id, attempt: state.states[task.id].attempts });
     const before = workspaceSnapshot(state.worktree);
     assertActive(context);
-    const result = await executor.execute(effectiveMilestone(state, { milestone: state.milestone }), task, { previous: state.states[task.id].feedback || null, source: state.sourceContext });
+    const result = replay ? replay.result : await executor.execute(effectiveMilestone(state, { milestone: state.milestone }), task, { previous: state.states[task.id].feedback || null, source: state.sourceContext });
+    state.validationCandidate = { taskId: task.id, attempt: state.states[task.id].attempts, head: state.head, result, snapshot: fingerprint(workspaceSnapshot(state.worktree)) };
+    saveRun(directory, state, { type: replay ? "validation-resumed" : "editor-result-retained", task: task.id, attempt: state.states[task.id].attempts });
     const { evidence, candidate, changed } = await inspectCandidate(executor, context, state, directory, task, inputIdentity, before, result);
     commitCandidate(state, directory, task, evidence, candidate, changed);
+    state.validationCandidate = null;
+    saveRun(directory, state);
     return true;
   } catch (e) {
     if (state.pending) throw e; // Resume must reconcile a possibly published local commit first.
+    if (e.code === "ENOBUFS" && state.validationCandidate) {
+      state.states[task.id].status = "ready";
+      saveRun(directory, state, { type: "controller-validation-unavailable", task: task.id, reason: e.message });
+      throw e;
+    }
+    state.validationCandidate = null;
     if (!state.states[task.id] || state.states[task.id].status !== "running") {
       state.states[task.id] = { ...(state.states[task.id] || {}), status: "blocked", reason: e.message };
     } else {
@@ -253,10 +268,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     const context = { workspace: state.worktree, sourceRoot: state.root, baseline: state.baseline, directory, common: path.dirname(path.dirname(directory)),
       resources, codex: config.codex, model: config.model, checks: config.checks,
       capabilities: config.capabilities, standards: standards(), deadline, now, signal,
-      readRoots: config.readRoots.map((p) => path.resolve(root, p)), protectedPaths: [config.plan, ...config.protectedPaths, ...config.adapterOutputs,
-        ...[config.adapter, ...Object.values(config.checks), ...Object.values(config.capabilities)].filter(Boolean)
-          .flatMap((command) => command.argv).filter((arg) => !path.isAbsolute(arg) && !arg.startsWith("-") &&
-            fs.existsSync(path.resolve(root, arg)) && fs.statSync(path.resolve(root, arg)).isFile())] };
+      readRoots: config.readRoots.map((p) => path.resolve(root, p)), protectedPaths: authorityPaths(root, config) };
     context.policy = fs.existsSync(path.join(root, ".qa.json")) ? loadConfig(path.join(root, ".qa.json")) : resolveConfig();
     const instructions = git(state.worktree, ["ls-files", "-z", "--", "*AGENTS.md", "*AGENTS.override.md", "*CLAUDE.md"]).split("\0").filter(Boolean);
     for (const file of instructions.filter((file) => !file.endsWith("AGENTS.md") || !instructions.includes(file.replace(/AGENTS\.md$/, "AGENTS.override.md")))) {
