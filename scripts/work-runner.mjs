@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { git } from "../lib/git.mjs";
 import { fingerprint, selectReady, validateProposal, validateBindings } from "../lib/work-plan.mjs";
-import { effectiveMilestone, startAttempt, failAttempt, handoff } from "../lib/work-state.mjs";
+import { effectiveMilestone, startAttempt, failAttempt, handoff, preparePlanningContext } from "../lib/work-state.mjs";
 import { createRun, loadRun, saveRun, storePath, acquireLock, reconcileRun } from "./work-store.mjs";
 import { workspaceSnapshot, headSnapshot, indexSnapshot, changedFiles, captureArtifacts, retainArtifacts, resourceIdentity } from "./work-evidence.mjs";
 import { provisionInputs, assertInputs } from "./work-sandbox.mjs";
@@ -40,8 +40,11 @@ async function checkSet(executor, config, ids, context) {
   return results;
 }
 async function deriveTasks(executor, state, milestone) {
-  const criteria = pendingPlanning(state, milestone);
-  if (!criteria.length || (state.planFailures || 0) >= 3) return false;
+  const criteria = pendingPlanning(state, milestone).filter((c) => c.checks.every((id) =>
+    (state.config.checks[id]?.requires || []).every((capability) => (state.available || []).includes(capability))));
+  if (!criteria.length) return false;
+  preparePlanningContext(state, criteria);
+  if ((state.planFailures || 0) >= 3) return false;
   try {
     const proposal = await executor.plan({ ...milestone, criteria }, state.tasks, { states: state.states, finalFailure: state.finalFailure, source: state.sourceContext });
     const tasks = validateProposal(proposal, milestone, state.config, state.tasks);
@@ -65,6 +68,8 @@ function finishPending(state, directory) {
   const files = recordAcceptance(state.root, state.config, state, operation);
   checkpointAdapterOutputs(state, directory, operation, files);
   if (state.receipts[operation.taskId]?.id !== operation.receipt.id) state.generation = (state.generation || 0) + 1;
+  const seen = new Set(Object.values(state.receipts).flatMap((receipt) => receipt.progressArtifacts ?? receipt.artifacts ?? []).map((a) => `${a.path}:${a.sha256}`));
+  const newEvidence = (operation.receipt.progressArtifacts || []).some((a) => !seen.has(`${a.path}:${a.sha256}`));
   state.receipts[operation.taskId] = operation.receipt;
   state.states[operation.taskId].status = "done";
   for (const id of operation.receipt.review.resolvedSources) {
@@ -74,7 +79,7 @@ function finishPending(state, directory) {
     state.revalidation = (state.revalidation || []).filter((criterionId) => criterionId !== id);
   }
   if (!state.checkpoints.some((c) => c.id === operation.id)) state.checkpoints.push({ id: operation.id, task: operation.taskId, commit: state.head });
-  state.noProgress = operation.changed.length || operation.receipt.artifacts.length || operation.receipt.review.resolvedSources.length ? 0 : (state.noProgress || 0) + 1;
+  state.noProgress = operation.changed.length || newEvidence || operation.receipt.review.resolvedSources.length ? 0 : (state.noProgress || 0) + 1;
   state.pending = null;
   state.validationCandidate = null;
 }
@@ -116,6 +121,8 @@ async function inspectCandidate(executor, context, state, directory, task, input
     summary: result.summary, checks, artifacts, kind: "observed", baseHead: state.head,
     changedPaths: changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths) };
   evidence.artifacts = retainArtifacts(state.worktree, directory, evidence.id, artifacts);
+  const outputs = new Set(ids.flatMap((id) => state.config.checks[id].outputs || []));
+  evidence.progressArtifacts = artifacts.filter((a) => (result.evidencePaths || []).includes(a.path) && !outputs.has(a.path));
   if (evidence.changedPaths.length) git(state.worktree, ["-c", "core.hooksPath=/dev/null", "add", "--", ...evidence.changedPaths]);
   const diff = diffContext(state.worktree, { staged: true });
   evidence.patch = diff.patch; evidence.coverage = diff.coverage;
