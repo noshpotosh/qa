@@ -25,6 +25,7 @@ try {
       ref: { type: "string" },
       apply: { type: "boolean" },
       remote: { type: "boolean" },
+      repairs: { type: "boolean" },
     },
   });
   const command = positionals[0],
@@ -42,6 +43,7 @@ try {
       ref,
       apply: v.apply,
       runtimeRoot,
+      repairs: v.repairs,
     });
     const summary = { applied: !!v.apply, detected, sourceSha: ref, changes: changes.map(({ content, ...c }) => c) };
     if (v.json) console.log(JSON.stringify(summary, null, 2));
@@ -50,6 +52,7 @@ try {
       for (const c of summary.changes.filter((c) => !c.path.startsWith(".qa/"))) console.log(`${c.action.padEnd(8)} ${c.path}${c.conflict ? ` — ${c.conflict}` : ""}`);
       console.log(`${changes.filter((c) => c.path.startsWith(".qa/") && c.action !== "preserve").length} local runtime changes. Existing workflows: ${detected.workflows.join(", ") || "none"}.`);
       if (!v.apply) console.log("Confirm these settings by repeating with --apply. Use --json for a machine-readable summary.");
+      if (v.repairs) console.log("Repair workflow proposed. Enable repair in trusted .qa.json with explicit validation commands, required checks and a digest-pinned container; configure owner-managed OPENAI_API_KEY, QA_APP_ID and QA_APP_PRIVATE_KEY. See docs/repairs.md in the source repository.");
       for (const c of changes.filter((c) => c.conflict)) console.log(`\nProposed ${c.path}:\n${c.content}`);
     }
   } else if (command === "check") {

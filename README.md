@@ -44,7 +44,7 @@ Add `OPENAI_API_KEY` to the consumer repository for Codex, or select `agent: cla
 
 PRs receive a mechanical policy check and one updated review comment. Weekly audits update one tracking issue on Mondays at 14:00 UTC; manual dispatch runs an audit. Untrusted fork PRs get mechanical checks and artifacts without provider secrets or comment writes. Missing credentials, invalid output and timeouts are reported as unavailable reviews.
 
-After validating a pilot, require the observed `QA / policy` check name in branch protection, preserving existing checks. Agent judgments remain advisory. No automatic code fixes, merges, force pushes or historical cleanup are performed.
+After validating a pilot, require the observed `QA / policy` check name in branch protection, preserving existing checks. Agent judgments remain advisory. Optional [requested repairs](docs/repairs.md) use a separate maintainer-dispatched workflow and GitHub App; basic adoption never enables code changes. No automatic merges, force pushes or historical cleanup are performed.
 
 ## Development and release
 
