@@ -7,7 +7,7 @@ import { safePath } from "../lib/install.mjs";
 import { checkPolicy } from "../lib/policy.mjs";
 import { resolveConfig, selectSkills } from "../lib/config.mjs";
 import { changeSchema, reviewSchema, hash, validateRecord, validateChanges } from "../lib/repair.mjs";
-import { issuePRBody } from "../lib/repair-github.mjs";
+import { issuePRBody, repairTitle } from "../lib/repair-github.mjs";
 
 export function prepareEditor(record, output) {
   validateRecord(record);
@@ -54,7 +54,7 @@ export function validateWorkspace(record, candidate, root, { run = execFileSync 
   const fullContext = diffContext(root, { base: record.target.baseSha, head: "HEAD" });
   result.policy = checkPolicy(fullContext, config, record.target.kind === "pr"
     ? { title: record.metadata.title, body: record.metadata.body, base: record.target.baseBranch }
-    : { title: `fix: repair issue #${record.target.number}`, body: issuePRBody(record), base: record.target.baseBranch }).report;
+    : { title: repairTitle(record), body: issuePRBody(record), base: record.target.baseBranch }).report;
   if (result.policy.status !== "passed") return { ...result, status: "policy-failed" };
   let output = "";
   try {
