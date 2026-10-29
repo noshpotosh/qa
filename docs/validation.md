@@ -16,6 +16,12 @@
   could not read the runner-owned private workspace. Validation now runs as the
   workspace owner's UID/GID with an ephemeral container home; the smoke tests
   exercise that production invocation.
+- [Hosted PR CI](https://github.com/noshpotosh/qa/actions/runs/40819465755)
+  passed after the UID fix: normal tests/checks/workflow linting and both actual
+  Docker smoke cases succeeded. A committed archive was also built and installed
+  through the real CLI locally; doctor succeeded from a consumer subdirectory.
+  Provider reviews were skipped for the draft PRs and are not included in this
+  passing implementation evidence.
 - No repository secret names are configured in QA at inspection. A live issue
   repair, existing-PR repair, App-triggered CI and repeated progress updates
   therefore remain pending. No consumer repair automation was enabled, no new

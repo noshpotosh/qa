@@ -42,7 +42,12 @@ jobs:
       - name: Validate immutable reference
         env:
           QA_REF: ${{ inputs.qa_ref }}
-        run: '[[ "$QA_REF" =~ ^[0-9a-f]{40}$ ]]'
+          TARGET_NUMBER: ${{ inputs.number }}
+          TARGET_KIND: ${{ inputs.kind }}
+        run: |
+          [[ "$QA_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$TARGET_KIND" == issue || "$TARGET_KIND" == pr ]]
       - uses: actions/checkout@v4
         with:
           repository: noshpotosh/qa
