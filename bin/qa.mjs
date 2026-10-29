@@ -10,6 +10,7 @@ import { renderReport } from "../lib/report.mjs";
 import { initialize } from "../lib/init.mjs";
 import { inspectRepository, sourceRef } from "../lib/install.mjs";
 import { diagnose } from "../scripts/doctor.mjs";
+import { workCli } from "../scripts/work-cli.mjs";
 try {
   const { values: v, positionals } = parseArgs({
     allowPositionals: true,
@@ -30,7 +31,9 @@ try {
   });
   const command = positionals[0],
     root = process.cwd();
-  if (command === "init") {
+  if (command === "milestone") {
+    console.log(JSON.stringify(await workCli(positionals.slice(1), v), null, 2));
+  } else if (command === "init") {
     const detected = inspectRepository(root);
     const runtimeRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
     const ref = sourceRef(runtimeRoot);
