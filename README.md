@@ -7,15 +7,22 @@ Shared quality standards for code, delivery, evidence, assets and hardware. Four
 Requires Node.js 22 or newer and Git. No package installation is needed.
 
 ```sh
-git clone https://github.com/noshpotosh/qa .qa
-node .qa/bin/qa.mjs init --profile web --ref <full-qa-commit-sha>
-# Inspect the proposed files, then repeat with --apply.
-node .qa/bin/qa.mjs doctor
+# Download a published version's qa-VERSION.tar.gz and matching .sha256
+# from https://github.com/noshpotosh/qa/releases into a temporary directory.
+# Verify the checksum, then extract it outside your repository:
+shasum -a 256 -c qa-VERSION.tar.gz.sha256
+tar -xzf qa-VERSION.tar.gz
+# From your existing repository, run the extracted CLI:
+node /path/to/extracted/qa/bin/qa.mjs init --profile web
+# Inspect the preview, then repeat with --apply.
+node .qa/bin/qa.mjs doctor --remote # optional; requires authenticated gh
 node .qa/bin/qa.mjs check --staged
 node .qa/bin/qa.mjs check --base origin/main --head HEAD --pr /path/to/pr.json
 ```
 
-`init` defaults to a dry run, appends one marked instruction block, and preserves existing files. If configuration or templates already exist, reconcile them manually using the preview. Keep `.qa` pinned as a submodule or an ignored checkout; do not accidentally commit a nested clone. Review the pinned commit before running its tools.
+`init` defaults to a dry run, detects the Git root and integration branch, and derives immutable workflow pins from the release. It installs an ignored local `.qa` runtime without a nested Git checkout. It appends one marked instruction block and preserves existing templates and CI. Ambiguous detection requires `--profile` or `--branch`. Confirm the displayed settings with `--apply`; conflicts include proposed content for manual reconciliation. Intact managed callers can be upgraded; edited runtime files and unrelated `.qa` directories are refused. Existing clone/submodule installations must be moved aside explicitly before switching to managed installation.
+
+Release archives are built from committed source with `node scripts/package-release.mjs /tmp/qa-release`. The tag workflow tests, packages and publishes archives on future version tags; no new release is implied by these instructions. Review the pinned source before running its tools. `doctor` separates local validity from credentials and historical live review evidence; `--remote` reads GitHub through your existing `gh` login and never retrieves secret values.
 
 `pr.json` contains `title`, `body`, and `base` (the target branch name). A local check without PR metadata explicitly skips PR-field checks. Exit codes: 0 passed, 1 policy failed, 2 unavailable/configuration error. Validation commands are recorded, never automatically executed by the CLI or model reviewer.
 
