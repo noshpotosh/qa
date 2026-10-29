@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { git } from "../lib/git.mjs";
-import { initialize, caller } from "../lib/init.mjs";
+import { initialize, repairCaller } from "../lib/init.mjs";
 import { inspectRepository, sourceRef, runtimeEntries } from "../lib/install.mjs";
 import { packageRelease } from "../scripts/package-release.mjs";
 import { diagnose } from "../scripts/doctor.mjs";
@@ -69,6 +69,14 @@ test("only intact managed callers can be upgraded", (t) => {
   assert.equal(initialize(root, { ref: next }).find((c) => c.path.endsWith("quality.yml")).action, "update");
   fs.appendFileSync(path.join(root, ".github/workflows/quality.yml"), "# local edit\n");
   assert(initialize(root, { ref: next }).find((c) => c.path.endsWith("quality.yml")).conflict);
+});
+test("managed repair callers upgrade without opting new consumers into repairs", (t) => {
+  const root = temp(t), ref = "a".repeat(40), next = "b".repeat(40);
+  initialize(root, { ref, apply: true });
+  assert(!fs.existsSync(path.join(root, ".github/workflows/qa-repair.yml")));
+  initialize(root, { ref, repairs: true, apply: true });
+  initialize(root, { ref: next, apply: true });
+  assert.equal(fs.readFileSync(path.join(root, ".github/workflows/qa-repair.yml"), "utf8"), repairCaller(next));
 });
 test("doctor distinguishes configuration from unavailable live evidence", (t) => {
   const root = temp(t);

@@ -1,5 +1,21 @@
 # v0.2.0 validation record
 
+## Adoption and requested repair implementation — October 28, 2026
+
+- Local automated coverage exercises release-archive installation, non-default
+  branches, managed upgrades and conflict refusal, repair authorization, stale
+  feedback, unsafe paths, candidate/tree binding, three-round limits, isolated
+  validation invocation, independent-review gates and exact-commit CI acceptance.
+- `npm test`, `npm run check`, and actionlint 1.7.12 pass on the implementation.
+  Container execution is mocked in local tests; Docker and live provider/App
+  acceptance are separate checks.
+- No repository secret names are configured in QA at inspection. A live issue
+  repair, existing-PR repair, App-triggered CI and repeated progress updates
+  therefore remain pending. No consumer repair automation was enabled, no new
+  release published, and no merge/protection settings changed.
+
+## Earlier baseline
+
 Validated on October 23, 2026. This record distinguishes implementation checks from live model acceptance.
 
 ## Passed

@@ -4,55 +4,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { git } from "../lib/git.mjs";
-import { resolveConfig } from "../lib/config.mjs";
 import { validateChanges, hash } from "../lib/repair.mjs";
 import { collectRequest, publishCandidate, publishProgress } from "../lib/repair-github.mjs";
 import { validateWorkspace } from "../scripts/repair-workspace.mjs";
 import { commentBody } from "../lib/publish.mjs";
 
-export const sha = "a".repeat(40), base = "b".repeat(40), treeSha = "c".repeat(40);
-export const repairConfig = () => resolveConfig({ requireVisualEvidence: false, repair: { enabled: true, validationCommands: ["node --test"], requiredChecks: ["CI"], validationImage: `node@sha256:${"d".repeat(64)}` } });
-export function record() {
-  return { version: 1, runId: "123", requestId: "owner/repo:123", actor: "owner", target: { kind: "pr", number: 7, branch: "feature", baseBranch: "main", baseSha: base, originalHead: sha }, currentHead: sha, prNumber: 7, metadata: { title: "Fix behavior", body: "Description", updatedAt: "then" }, config: repairConfig(), sources: [{ id: "comment:1", body: "Fix behavior", updatedAt: "then" }], rounds: [], status: "requested", resolvedSources: [] };
-}
-export function fakeApi() {
-  const calls = [];
-  const state = {
-    userType: "User", permission: "write", head: sha, base, fork: false,
-    issue: { number: 7, title: "Fix behavior", body: "Fix the reported behavior", updated_at: "then", state: "open" },
-    comments: [{ id: 1, body: "Fix behavior", updated_at: "then", user: { type: "User", login: "human" } }],
-    reviewComments: [], config: repairConfig(), tree: [{ path: "file.txt", mode: "100644", type: "blob", sha: treeSha }],
-  };
-  const fn = (name, body) => async (args) => { calls.push({ name, args }); return { data: typeof body === "function" ? body(args) : body }; };
-  const api = { rest: {
-    users: { getByUsername: fn("user", () => ({ type: state.userType })) },
-    repos: {
-      getCollaboratorPermissionLevel: fn("permission", () => ({ permission: state.permission })),
-      get: fn("repo", { default_branch: "main" }),
-      getContent: fn("config", () => ({ type: "file", encoding: "base64", content: Buffer.from(JSON.stringify(state.config)).toString("base64") })),
-      getCommit: fn("head", () => ({ sha: state.head })),
-    },
-    pulls: {
-      get: fn("pr", () => ({ number: 7, state: "open", title: "Fix behavior", body: "Description", updated_at: "then", head: { sha: state.head, ref: "feature", repo: { full_name: state.fork ? "fork/repo" : "owner/repo" } }, base: { sha: state.base, ref: "main" } })),
-      listReviewComments: fn("reviewComments", () => state.reviewComments),
-      create: fn("createPR", { number: 8 }),
-    },
-    issues: {
-      get: fn("issue", () => state.issue),
-      listComments: fn("comments", () => state.comments),
-      updateComment: fn("updateComment", {}), createComment: fn("createComment", {}),
-    },
-    git: {
-      getTree: fn("tree", () => ({ tree: state.tree, truncated: false })),
-      getCommit: fn("gitCommit", { tree: { sha: treeSha } }),
-      createBlob: fn("blob", { sha: treeSha }),
-      createTree: fn("createTree", { sha: treeSha }),
-      createCommit: fn("commit", { sha: "e".repeat(40) }),
-      updateRef: fn("updateRef", {}), createRef: fn("createRef", {}),
-    },
-  }, paginate: async (method, args) => (await method(args)).data };
-  return { api, state, calls };
-}
+import { sha, base, treeSha, record, fakeApi } from "./fixtures/repair-api.mjs";
+
 const request = { owner: "owner", repo: "repo", actor: "owner", eventName: "workflow_dispatch", ref: "refs/heads/main", runId: "123", runAttempt: "1", kind: "pr", number: 7, sources: "comment:1" };
 test("only human write-authorized first-attempt default-branch dispatches can request repairs", async () => {
   const { api, state } = fakeApi();

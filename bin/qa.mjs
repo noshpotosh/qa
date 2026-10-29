@@ -70,7 +70,9 @@ try {
     );
     if (result.report.status === "failed") process.exitCode = 1;
   } else if (command === "doctor") {
-    const c = loadConfig(v.config || ".qa.json");
+    const repoRoot = inspectRepository(root).root;
+    const configFile = v.config ? path.resolve(v.config) : path.join(repoRoot, ".qa.json");
+    const c = loadConfig(configFile);
     git(root, ["--version"]);
     const skillRoot = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
@@ -86,10 +88,10 @@ try {
     console.log(
       "API credentials, live checks and repository protection require separate verification.",
     );
-    console.log(JSON.stringify(diagnose(inspectRepository(root).root, { remote: v.remote, config: path.resolve(v.config || ".qa.json") }), null, 2));
+    console.log(JSON.stringify(diagnose(repoRoot, { remote: v.remote, config: configFile }), null, 2));
   } else
     throw Error(
-      "Usage: qa init --profile NAME --ref SHA [--apply] | qa check (--staged | --base REF [--head REF]) [--pr JSON] [--json] | qa doctor",
+      "Usage: qa init [--profile NAME] [--branch NAME] [--repairs] [--apply] [--json] | qa check (--staged | --base REF [--head REF]) [--pr JSON] [--json] | qa doctor [--remote]",
     );
 } catch (error) {
   console.error(`QA unavailable: ${error.message}`);

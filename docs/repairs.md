@@ -36,7 +36,8 @@ Configure owner-managed repository secrets:
 
 - `OPENAI_API_KEY` for the Codex repair proposer.
 - `QA_APP_ID` and `QA_APP_PRIVATE_KEY` for an App installed only on intended
-  consumers, with Contents, Pull requests and Issues write permissions. Only the
+  consumers, with Contents, Pull requests and Issues write permissions, and
+  Checks and Actions read permissions. Only the
   publisher mints a repository-scoped installation token.
 - `ANTHROPIC_API_KEY` if the independent reviewer uses Claude.
 
@@ -67,8 +68,20 @@ One dispatch owns its round budget; reruns are refused. Dispatch a new request
 after inspecting a blocked result. Requests serialize by target. Private source,
 snapshots and validation logs are retained in artifacts for 14 days.
 
-The initial slice publishes validated candidates as `awaiting-review`; the next
-slice adds bounded independent review and exact-commit CI acceptance.
+One request runs up to three rounds. Each round proposes replacements, validates
+them in isolation, and runs a fresh independent review. Only a passing review
+that verifies all selected sources and stays within scope can publish a candidate.
+The publisher then waits up to 15 minutes for the configured CI checks on that
+exact commit. Failed validation, unresolved review findings or failed CI feed
+the next round; unavailable evidence, scope expansion, conflicts, concurrent
+changes and repeated unpublished candidates stop the request. Three unsuccessful
+rounds exhaust the budget. Text changes are retained with attempt evidence so
+later rounds can repair unpublished candidates without losing earlier fixes.
+
+`completed` requires validation, policy, independent review and selected CI to
+pass. Draft issue PRs stay draft; humans review and merge. A failed later round
+does not remove earlier published commits. Progress updates one App-owned
+comment per request and retains the full versioned record in artifacts.
 
 ## Pilot acceptance
 
