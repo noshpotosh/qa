@@ -9,6 +9,9 @@
 - `npm test`, `npm run check`, and actionlint 1.7.12 pass on the implementation.
   Container execution is mocked in local tests; Docker and live provider/App
   acceptance are separate checks.
+- Hosted CI includes two actual container smoke cases, using a digest-pinned
+  official Node image: successful isolated validation and propagation of a failing
+  command. These cases are skipped locally unless `QA_DOCKER_IMAGE` is supplied.
 - No repository secret names are configured in QA at inspection. A live issue
   repair, existing-PR repair, App-triggered CI and repeated progress updates
   therefore remain pending. No consumer repair automation was enabled, no new
