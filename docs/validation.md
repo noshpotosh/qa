@@ -2,7 +2,7 @@
 
 ## Local milestone runner — October 29, 2026
 
-- 72 automated cases: 70 passed, two Docker cases explicitly skipped locally.
+- 74 automated cases: 72 passed, two Docker cases explicitly skipped locally.
   `npm run check`, actionlint 1.7.12 and `git diff --check` passed. Tests cover
   frozen scope, task derivation/scope rejection, dirty-baseline refusal, persisted
   attempts, unavailable check capabilities, source-mutating checks, final
@@ -17,6 +17,13 @@
   [pilot receipt](../examples/validation/local-milestone-pilot.json) records the
   candidate, checks and artifact hashes. Provider task derivation and Linux
   sandbox acceptance were not part of this live pilot.
+- A committed archive from `6b07d20` was extracted and installed into a clean
+  `develop`-branch consumer: preview/apply, the packaged milestone scaffold,
+  disabled execution and installed plan preview passed. [Hosted validation on
+  that revision](https://github.com/noshpotosh/qa/actions/runs/40934200426) passed
+  normal tests/checks/workflow linting and both actual Docker smoke cases.
+  Later tracker-revocation and pre-commit concurrency guards have additional
+  local regression coverage and receive the same hosted checks.
 - The isolated THPS4 integration's committed-baseline Tracker suite passed all
   31 tests with loopback sockets enabled. The baseline capability correctly
   rejected missing/different reviewed Unity inputs. Tracker revision 115 was

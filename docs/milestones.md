@@ -141,6 +141,8 @@ original baseline, with JSON stdin/stdout and an explicit timeout. `read` return
 independent-review receipt, operation ID, expected revision, source commit and
 owned workspace. `attest` receives a human receipt. Writes must be revision
 checked, narrow, backed up where appropriate and idempotent by operation ID.
+Subsequent reads must reflect recorded acceptance. A revoked tracker criterion
+stops reconciliation instead of being overwritten by a historical receipt.
 
 An adapter returns `{version:1,revision:string,checkpointFiles?:string[]}`. Only
 declared `adapterOutputs` may change in the owned workspace; the controller

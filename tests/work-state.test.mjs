@@ -54,3 +54,12 @@ test("resume recognizes an interrupted recorded commit without duplicating it", 
   assert.equal(resumed.head, git(state.worktree, ["rev-parse", "HEAD"]).trim());
   assert.equal(resumed.pending.commit, resumed.head);
 });
+test("tracker revocations are preserved instead of overlaid with an older receipt", (t) => {
+  const f = fixture(t);
+  f.config.adapter = { argv: ["node", "adapter.mjs"], timeoutSeconds: 30 };
+  const { state } = createRun(f.root, f.snapshot, f.config);
+  state.accepted.correct = { evidence: "old-receipt" };
+  assert.throws(() => reconcileRun(state, f.snapshot, f.config), /acceptance was revoked/);
+  const accepted = structuredClone(f.snapshot); accepted.milestone.criteria[0].done = true;
+  assert.doesNotThrow(() => reconcileRun(state, accepted, f.config));
+});

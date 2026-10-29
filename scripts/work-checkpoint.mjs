@@ -4,6 +4,7 @@ import { headSnapshot, workspaceSnapshot, captureArtifacts } from "./work-eviden
 import { saveRun } from "./work-store.mjs";
 
 export function checkpointAdapterOutputs(state, directory, operation, files) {
+  if (git(state.worktree, ["rev-parse", "HEAD"]).trim() !== state.head) throw Error("Workspace head changed before adapter checkpoint");
   const before = headSnapshot(state.worktree), after = workspaceSnapshot(state.worktree);
   const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((name) =>
     fingerprint(before[name] ?? null) !== fingerprint(after[name] ?? null));

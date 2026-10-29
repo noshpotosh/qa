@@ -131,6 +131,7 @@ async function inspectCandidate(executor, context, state, directory, task, input
   return { evidence, candidate, changed };
 }
 function commitCandidate(state, directory, task, evidence, candidate, changed) {
+  reconcileRun(state, { milestone: state.milestone }, state.config);
   state.pending = { id: crypto.randomUUID(), taskId: task.id, receipt: evidence, changed, tree: null };
   if (changed.length) {
     git(state.worktree, ["-c", "core.hooksPath=/dev/null", "add", "--", ...changed]);

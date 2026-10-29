@@ -183,3 +183,13 @@ test("no-progress stop persists across resume", async (t) => {
   await runMilestone(f.root, f.config, "demo", { resume: true, executorFactory });
   assert.equal(sequence, 3);
 });
+test("a concurrent commit during review stops before an agent checkpoint", async (t) => {
+  const f = fixture(t);
+  await assert.rejects(runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), review: async (_milestone, task) => {
+      git(context.workspace, ["commit", "--allow-empty", "-m", "Concurrent operator commit"]);
+      return { scope: "within-request", report: report(), resolvedSources: task.criteria };
+    },
+  }) }), /outside the recorded operation/);
+  assert.equal(loadRun(f.root, "demo").state.checkpoints.length, 0);
+});
