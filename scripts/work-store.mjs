@@ -69,7 +69,9 @@ export function createRun(root, snapshot, config) {
   const exclude = git(root, ["rev-parse", "--git-path", "info/exclude"]).trim();
   const excludePath = path.resolve(root, exclude);
   const text = fs.existsSync(excludePath) ? fs.readFileSync(excludePath, "utf8") : "";
-  if (!text.split("\n").includes("/.qa-worktrees/")) fs.appendFileSync(excludePath, "\n/.qa-worktrees/\n");
+  for (const pattern of ["/.qa-worktrees/", "/.qa-output/"]) {
+    if (!text.split("\n").includes(pattern)) fs.appendFileSync(excludePath, `\n${pattern}\n`);
+  }
   git(root, ["worktree", "add", "-b", branch, worktree, baseline]);
   fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   const state = { version: 1, id: milestone.id, root, worktree, branch, baseline, head: baseline,
@@ -81,6 +83,7 @@ export function createRun(root, snapshot, config) {
 }
 export function reconcileRun(state, snapshot, config) {
   if (state.approval !== approvalIdentity(snapshot.milestone, config)) throw Error("Milestone scope or execution authority changed; renewed approval required");
+  if (git(state.root, ["rev-parse", "HEAD"]).trim() !== state.baseline || git(state.root, ["status", "--porcelain", "-uall"]).trim()) throw Error("Original baseline changed; existing work was preserved");
   if (state.processes.some((process) => alive(process.pid))) throw Error("A recorded owned process is still running; no task was repeated");
   const head = git(state.worktree, ["rev-parse", "HEAD"]).trim();
   if (head !== state.head) {

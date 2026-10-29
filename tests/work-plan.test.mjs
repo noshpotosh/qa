@@ -1,15 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateWorkPlan, validateProposal, selectReady, approvalIdentity, allowedChange } from "../lib/work-plan.mjs";
+import { validateWorkPlan, validateProposal, selectReady, approvalIdentity, allowedChange, identifier } from "../lib/work-plan.mjs";
 import { resolveWork } from "../lib/work-config.mjs";
 
-export function milestone() {
-  return { id: "demo", title: "A bounded demo", scope: "Fix the demo and verify its behavior.",
-    allowedPaths: ["src/**", "evidence/**"], finalChecks: ["test"],
-    criteria: [{ id: "correct", description: "Behavior is correct", kind: "automated", done: false, evidence: [], checks: ["test"] },
-      { id: "feel", description: "Human accepts the result", kind: "human", done: false, evidence: [], checks: [] }],
-    tasks: [{ id: "fix", title: "Fix the behavior", kind: "implementation", criteria: ["correct"], dependencies: [], capabilities: [], checks: ["test"], priority: 1 }] };
-}
+import { milestone } from "./fixtures/work-plan.mjs";
+
 test("work contracts reject cycles, unknown dependencies and automatic human credit", () => {
   const m = milestone(); assert.equal(validateWorkPlan({ version: 1, milestones: [m] }).version, 1);
   m.tasks[0].dependencies = ["missing"];
@@ -54,4 +49,5 @@ test("configuration requires literal commands and bounds retries", () => {
   assert.throws(() => resolveWork({ checks: { test: "npm test" } }));
   assert.throws(() => resolveWork({ attempts: 4 }));
   assert.throws(() => resolveWork({ resources: [{ id: "x", source: "/tmp", target: "../escape" }] }));
+  for (const name of ["constructor", "toString", "prototype"]) assert.throws(() => identifier(name));
 });

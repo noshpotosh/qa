@@ -30,3 +30,12 @@ export function previewMilestone(root, config, id) {
   const snapshot = readMilestone(root, config, id);
   return { ...snapshot, root: path.resolve(root) };
 }
+export function recordAcceptance(root, config, state, operation) {
+  if (!config.adapter) return; // File-backed acceptance lives in the durable journal.
+  const result = invokeAdapter(root, config, { operation: "record", milestoneId: state.id,
+    operationId: operation.id, expectedRevision: state.sourceRevision,
+    task: state.tasks.find((t) => t.id === operation.taskId), receipt: operation.receipt,
+    sourceHead: state.head });
+  if (result.version !== 1 || typeof result.revision !== "string") throw Error("Invalid adapter record result");
+  state.sourceRevision = result.revision;
+}

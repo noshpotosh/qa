@@ -27,6 +27,9 @@ try {
       apply: { type: "boolean" },
       remote: { type: "boolean" },
       repairs: { type: "boolean" },
+      approve: { type: "boolean" },
+      criterion: { type: "string" },
+      evidence: { type: "string" },
     },
   });
   const command = positionals[0],
