@@ -90,6 +90,7 @@ test("real candidate path creates a policy-checked tree and isolates test comman
     invoked = true;
     assert.equal(command, "docker");
     assert(args.includes("--cap-drop=ALL"));
+    assert.equal(args[args.indexOf("--user") + 1], `${process.getuid()}:${process.getgid()}`);
     assert.equal(args.filter((a) => a === "--mount").length, 1);
     assert(!Object.keys(options.env).some((key) => /TOKEN|KEY|GITHUB/.test(key)));
     assert.equal(fs.readFileSync(path.join(root, "file.txt"), "utf8"), "fixed");

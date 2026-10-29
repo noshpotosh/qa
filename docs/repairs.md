@@ -29,7 +29,8 @@ invalid image placeholder with a verified image digest. Enabled repairs require
 explicit commands, checks and a digest-pinned image. Choose an image containing
 your project's tools; no implicit install/setup command runs. Commands execute
 sequentially in one container with only the candidate directory mounted, no
-capabilities, no inherited credentials and a 15-minute timeout. Network access is
+capabilities, the runner's UID/GID, an ephemeral home, no inherited credentials
+and a 15-minute timeout. Network access is
 available for dependency setup. Hosted Ubuntu runners provide Docker.
 
 Configure owner-managed repository secrets:

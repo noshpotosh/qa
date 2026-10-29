@@ -12,6 +12,10 @@
 - Hosted CI includes two actual container smoke cases, using a digest-pinned
   official Node image: successful isolated validation and propagation of a failing
   command. These cases are skipped locally unless `QA_DOCKER_IMAGE` is supplied.
+- The first hosted container run exposed a UID mismatch: a capability-free root
+  could not read the runner-owned private workspace. Validation now runs as the
+  workspace owner's UID/GID with an ephemeral container home; the smoke tests
+  exercise that production invocation.
 - No repository secret names are configured in QA at inspection. A live issue
   repair, existing-PR repair, App-triggered CI and repeated progress updates
   therefore remain pending. No consumer repair automation was enabled, no new

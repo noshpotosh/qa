@@ -60,7 +60,7 @@ export function validateWorkspace(record, candidate, root, { run = execFileSync 
   try {
     // Only the candidate directory is mounted. No host Docker socket, tokens,
     // Actions output files, or trusted QA code is available inside the container.
-    output = run("docker", ["run", "--rm", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=512", "--memory=4g", "--cpus=2", "--mount", `type=bind,source=${path.resolve(root)},target=/workspace`, "--workdir", "/workspace", "--entrypoint", "/bin/sh", config.repair.validationImage, "-eu", "-c", config.repair.validationCommands.join("\n")], { timeout: 15 * 60 * 1000, maxBuffer: 1024 * 1024, encoding: "utf8", env: { PATH: process.env.PATH, HOME: process.env.HOME } }) || "";
+    output = run("docker", ["run", "--rm", "--user", `${process.getuid()}:${process.getgid()}`, "--env", "HOME=/tmp", "--env", "CI=true", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--pids-limit=512", "--memory=4g", "--cpus=2", "--mount", `type=bind,source=${path.resolve(root)},target=/workspace`, "--workdir", "/workspace", "--entrypoint", "/bin/sh", config.repair.validationImage, "-eu", "-c", config.repair.validationCommands.join("\n")], { timeout: 15 * 60 * 1000, maxBuffer: 1024 * 1024, encoding: "utf8", env: { PATH: process.env.PATH, HOME: process.env.HOME } }) || "";
     result.status = "passed";
   } catch (error) { output = String(error.stdout || "") + String(error.stderr || ""); result.status = "failed"; result.exitCode = error.status ?? null; result.reason = error.signal ? "Validation timeout, output limit or termination" : "Validation command failed"; }
   finally {
