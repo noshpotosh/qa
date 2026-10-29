@@ -42,6 +42,11 @@ node .qa/bin/qa.mjs milestone status milestone-1
 node .qa/bin/qa.mjs milestone resume milestone-1
 ```
 
+After repairing unavailable executor infrastructure, use `milestone resume ID
+--retry-unavailable` to retry only tasks stopped by executor unavailability.
+Prior attempts and equivalent-task failure limits are retained; exhausted,
+scope-rejected and ordinary validation-failed tasks are not reset.
+
 `plan` reads the contract without invoking the model. Empty task lists are valid:
 the runner derives small tasks inside the frozen scope and submits the proposed
 plan to a separate scope reviewer. Explicit tasks may declare dependencies,
@@ -94,6 +99,10 @@ Provider transport uses the CLI's existing login outside the command sandbox.
 Model invocations ignore user configuration, disable apps/MCP and use a fresh
 conversation for every review. No sandbox bypass is used. Review receives the
 controller's actual staged patch and observed check records.
+The controller snapshots repository instructions (respecting directory-level
+`AGENTS.override.md`) into the prompt and disables CLI automatic instruction
+discovery with [`project_doc_max_bytes = 0`](https://learn.chatgpt.com/docs/config-file/config-reference). Instruction files remain denied to
+worker writes, including newly created override files.
 
 ## Resume, acceptance and publishing
 

@@ -30,6 +30,7 @@ try {
       repairs: { type: "boolean" },
       milestones: { type: "boolean" },
       approve: { type: "boolean" },
+      "retry-unavailable": { type: "boolean" },
       criterion: { type: "string" },
       evidence: { type: "string" },
     },

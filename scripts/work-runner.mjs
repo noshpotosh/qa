@@ -172,6 +172,7 @@ async function performTask(executor, context, state, directory, task, inputIdent
       state.states[task.id] = { ...(state.states[task.id] || {}), status: "blocked", reason: e.message };
     } else {
       state.states[task.id].feedback = e.feedback || e.message;
+      state.states[task.id].unavailable = !!e.unavailable;
       failAttempt(state, task, e.message, { terminal: !!e.terminal });
     }
     saveRun(directory, state, { type: "attempt-failed", task: task.id, reason: e.message });
@@ -223,7 +224,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
     }
   }
 }
-export async function runMilestone(root, config, id, { approve = false, resume = false,
+export async function runMilestone(root, config, id, { approve = false, resume = false, retryUnavailable = false,
   executorFactory = (context, options) => new CodexExecutor(context, options), now = Date.now,
   signal, onProgress = () => {} } = {}) {
   if (!approve && !resume) throw Error("Use --approve after reviewing the milestone plan");
@@ -257,7 +258,8 @@ export async function runMilestone(root, config, id, { approve = false, resume =
           .flatMap((command) => command.argv).filter((arg) => !path.isAbsolute(arg) && !arg.startsWith("-") &&
             fs.existsSync(path.resolve(root, arg)) && fs.statSync(path.resolve(root, arg)).isFile())] };
     context.policy = fs.existsSync(path.join(root, ".qa.json")) ? loadConfig(path.join(root, ".qa.json")) : resolveConfig();
-    for (const file of git(state.worktree, ["ls-files", "-z", "--", "*AGENTS.md", "*CLAUDE.md"]).split("\0").filter(Boolean)) {
+    const instructions = git(state.worktree, ["ls-files", "-z", "--", "*AGENTS.md", "*AGENTS.override.md", "*CLAUDE.md"]).split("\0").filter(Boolean);
+    for (const file of instructions.filter((file) => !file.endsWith("AGENTS.md") || !instructions.includes(file.replace(/AGENTS\.md$/, "AGENTS.override.md")))) {
       context.standards += `\nRepository instructions at ${file} (apply to that subtree):\n${fs.readFileSync(path.join(state.worktree, file), "utf8")}\n`;
     }
     provisionInputs(context);
@@ -269,6 +271,15 @@ export async function runMilestone(root, config, id, { approve = false, resume =
       onEnd: () => { state.processes = []; saveRun(directory, state); } });
     const executor = executorFactory(context, processOptions);
     await executor.doctor();
+    if (resume && retryUnavailable) {
+      for (const [task, attempt] of Object.entries(state.states)) {
+        const unavailable = attempt.unavailable || /^Codex (execute|review) unavailable:/.test(attempt.reason || "");
+        if (attempt.status === "blocked" && unavailable && attempt.attempts < config.attempts && (state.failureKeys[attempt.key] || 0) < config.attempts) {
+          attempt.status = "ready";
+          saveRun(directory, state, { type: "unavailable-retry-requested", task, attempts: attempt.attempts });
+        }
+      }
+    }
     const available = [];
     for (const [name, command] of Object.entries(config.capabilities)) {
       if ((await executor.check(command)).status === "passed") available.push(name);

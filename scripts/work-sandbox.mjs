@@ -22,9 +22,12 @@ export function profileText({ workspace, directory, common, resources = [], read
   const filesystem = Object.fromEntries(entries);
   filesystem[workspace] = { ".": writable ? "write" : "read", ".git": "read",
     "**/.env*": "deny", ".qa.json": "read", ".qa-work.json": "read",
-    ".github": "read", ".codex": "read", "**/AGENTS.md": "deny", "**/CLAUDE.md": "deny" };
+    ".github": "read", ".codex": "read", "**/AGENTS.md": "deny", "**/AGENTS.override.md": "deny", "**/CLAUDE.md": "deny" };
   for (const name of protectedPaths) filesystem[workspace][name] = "read";
+  // Instructions are snapshotted by the controller and supplied in the prompt.
+  // Avoid CLI discovery trying to open deliberately denied control files.
   const config = { default_permissions: "qa-run", approval_policy: "never", web_search: "disabled",
+    project_doc_max_bytes: 0, project_doc_fallback_filenames: [],
     features: { apps: false, multi_agent: false }, mcp_servers: {},
     permissions: { "qa-run": { filesystem, network: { enabled: network } } },
     shell_environment_policy: { inherit: "none", set: { PATH: process.env.PATH || "/usr/bin:/bin", HOME: home } } };
@@ -47,6 +50,7 @@ export function sandboxHome(context, options = {}) {
   return { directory, config };
 }
 function inlineTOML(value) {
+  if (Array.isArray(value)) return "[" + value.map(inlineTOML).join(", ") + "]";
   if (value && typeof value === "object") return "{ " + Object.entries(value)
     .map(([key, child]) => `${quote(key)} = ${inlineTOML(child)}`).join(", ") + " }";
   return JSON.stringify(value);

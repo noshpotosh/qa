@@ -50,7 +50,7 @@ export class CodexExecutor {
     if (fs.existsSync(path.join(context.workspace, ".codex/config.toml"))) throw Error("Project Codex configuration requires a vetted executor profile; no unrestricted fallback");
     const result = await runProcess(argv, { ...this.processOptions(), cwd: context.workspace,
       input: prompt, env: processEnvironment(), log: path.join(context.directory, `${role}-${nonce}.jsonl`) });
-    if (result.status !== "passed" || !fs.existsSync(output)) throw Object.assign(Error(`Codex ${role} unavailable: ${result.output.slice(-2000)}`), { terminal: true });
+    if (result.status !== "passed" || !fs.existsSync(output)) throw Object.assign(Error(`Codex ${role} unavailable: ${result.output.slice(-2000)}`), { terminal: true, unavailable: true });
     return JSON.parse(fs.readFileSync(output, "utf8"));
   }
   async plan(milestone, tasks, feedback) {

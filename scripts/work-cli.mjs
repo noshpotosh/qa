@@ -18,7 +18,7 @@ export async function workCli(positionals, values) {
     const stop = () => abort.abort();
     process.once("SIGINT", stop); process.once("SIGTERM", stop);
     try {
-      const result = await runMilestone(root, config, id, { approve: !!values.approve, resume: operation === "resume", signal: abort.signal,
+      const result = await runMilestone(root, config, id, { approve: !!values.approve, resume: operation === "resume", retryUnavailable: !!values["retry-unavailable"], signal: abort.signal,
         onProgress: (event) => console.error(`${event.phase}: ${event.task}`) });
       if ((config.publication === "run-end" && !["budget-paused", "interrupted"].includes(result.status)) || (config.publication === "milestone-end" && result.status === "completed")) {
         try { result.publication = publishMilestone(root, id); }

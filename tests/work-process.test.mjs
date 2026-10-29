@@ -27,5 +27,8 @@ test("generated permission profiles isolate the controller and credential stores
   assert(text.includes('"apps" = false'));
   assert(text.includes('"multi_agent" = false'));
   assert(text.includes('"enabled" = false'));
+  assert(text.includes('project_doc_max_bytes = 0'));
+  assert(text.includes('project_doc_fallback_filenames = []'));
+  assert(text.includes('"**/AGENTS.override.md" = "deny"'));
   assert(!text.includes("danger-full-access"));
 });

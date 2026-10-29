@@ -47,7 +47,7 @@ test("three failing attempts remain exhausted across resume", async (t) => {
   const result = await runMilestone(f.root, f.config, "demo", { ...options, approve: true });
   assert.equal(result.status, "blocked");
   assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 3);
-  await runMilestone(f.root, f.config, "demo", { ...options, resume: true });
+  await runMilestone(f.root, f.config, "demo", { ...options, resume: true, retryUnavailable: true });
   assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 3);
 });
 test("blocked candidate is preserved separately while independent tasks proceed", async (t) => {
@@ -192,4 +192,25 @@ test("a concurrent commit during review stops before an agent checkpoint", async
     },
   }) }), /outside the recorded operation/);
   assert.equal(loadRun(f.root, "demo").state.checkpoints.length, 0);
+});
+test("explicit unavailable retry preserves the attempt budget and instruction overrides", async (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.root, "AGENTS.md"), "Root policy sentinel");
+  fs.writeFileSync(path.join(f.root, "AGENTS.override.md"), "Scoped override sentinel");
+  git(f.root, ["add", "."]);git(f.root, ["commit", "-m", "Set repository instructions"]);
+  const first = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), execute: async () => { throw Object.assign(Error("Codex execute unavailable: infrastructure"), { terminal: true, unavailable: true }); },
+  }) });
+  assert.equal(first.status, "blocked");
+  assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 1);
+  const stillBlocked = await runMilestone(f.root, f.config, "demo", { resume: true, executorFactory: fake });
+  assert.equal(stillBlocked.status, "blocked");
+  assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 1);
+  const result = await runMilestone(f.root, f.config, "demo", { resume: true, retryUnavailable: true, executorFactory: (context) => {
+    assert(context.standards.includes("Scoped override sentinel"));
+    assert(!context.standards.includes("Root policy sentinel"));
+    return fake(context);
+  } });
+  assert.equal(result.status, "completed");
+  assert.equal(loadRun(f.root, "demo").state.states.fix.attempts, 2);
 });
