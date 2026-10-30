@@ -24,7 +24,13 @@ node .qa/bin/qa.mjs check --base origin/main --head HEAD --pr /path/to/pr.json
 
 Release archives are built from committed source with `node scripts/package-release.mjs /tmp/qa-release`. The tag workflow tests, packages and publishes archives on future version tags; no new release is implied by these instructions. Review the pinned source before running its tools. `doctor` separates local validity from credentials and historical live review evidence; `--remote` reads GitHub through your existing `gh` login and never retrieves secret values.
 
-`pr.json` contains `title`, `body`, and `base` (the target branch name). A local check without PR metadata explicitly skips PR-field checks. Exit codes: 0 passed, 1 policy failed, 2 unavailable/configuration error. Validation commands are recorded, never automatically executed by the CLI or model reviewer.
+`pr.json` contains `title`, `body`, and `base` (the target branch name). A local check without PR metadata explicitly skips PR-field checks. Exit codes: 0 passed, 1 policy failed, 2 unavailable/configuration error. Policy validation commands are recorded; policy/report libraries and model reviewers never execute them. Opt-in milestone execution runs explicitly configured checks through its local adapter.
+
+## Continue an approved milestone
+
+Use `init --milestones` to propose a disabled local execution scaffold. Define and commit a bounded scope and meaningful checks, enable it, then run `qa milestone run ID --approve`. The runner derives ready tasks, edits in an isolated worktree, validates and requests independent reviews until completion, its budget, a blocker or human acceptance. `resume` retains progress and retry limits. See [milestone setup and commands](docs/milestones.md) and the [THPS4 tracker example](examples/thps4/README.md). Local runs use existing Codex CLI authentication; they require neither Actions secrets nor a publishing App.
+
+Opt-in [v2 milestone execution](docs/milestones-v2.md) separates prerequisite research from acceptance, adds sandboxed capability preflight, and retains reusable acquisition receipts. Existing v1 runs require an explicit reviewed migration; their evidence and retry budgets are preserved.
 
 ## Skills and profiles
 
@@ -44,7 +50,7 @@ Add `OPENAI_API_KEY` to the consumer repository for Codex, or select `agent: cla
 
 PRs receive a mechanical policy check and one updated review comment. Weekly audits update one tracking issue on Mondays at 14:00 UTC; manual dispatch runs an audit. Untrusted fork PRs get mechanical checks and artifacts without provider secrets or comment writes. Missing credentials, invalid output and timeouts are reported as unavailable reviews.
 
-After validating a pilot, require the observed `QA / policy` check name in branch protection, preserving existing checks. Agent judgments remain advisory. No automatic code fixes, merges, force pushes or historical cleanup are performed.
+After validating a pilot, require the observed `QA / policy` check name in branch protection, preserving existing checks. Agent judgments remain advisory. Optional [requested repairs](docs/repairs.md) use a separate maintainer-dispatched workflow and GitHub App; basic adoption never enables code changes. No automatic merges, force pushes or historical cleanup are performed.
 
 ## Development and release
 

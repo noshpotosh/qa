@@ -1,0 +1,311 @@
+name: QA repair round
+on:
+  workflow_call:
+    inputs:
+      qa_ref:
+        type: string
+        required: true
+      previous:
+        type: number
+        required: true
+      round:
+        type: number
+        required: true
+    secrets:
+      OPENAI_API_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      QA_APP_ID:
+        required: false
+      QA_APP_PRIVATE_KEY:
+        required: false
+    outputs:
+      decision:
+        value: ${{ jobs.publish.outputs.decision }}
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  checks: read
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      head: ${{ steps.prepare.outputs.head }}
+    steps:
+      - name: Validate round inputs
+        env:
+          QA_REF: ${{ inputs.qa_ref }}
+          ROUND: ${{ inputs.round }}
+          PREVIOUS: ${{ inputs.previous }}
+        run: |
+          [[ "$QA_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$ROUND" =~ ^[123]$ && "$PREVIOUS" =~ ^[012]$ ]]
+          test "$ROUND" -eq "$((PREVIOUS + 1))"
+      - uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-repair-state-${{ inputs.previous }}
+          path: .qa-state
+      - name: Prepare next attempt from recorded state
+        id: prepare
+        env:
+          PREVIOUS: ${{ inputs.previous }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {prepareEditor} from './.qa/scripts/repair-workspace.mjs';
+          const r=JSON.parse(fs.readFileSync('.qa-state/record.json','utf8'));
+          if(r.rounds.length!==Number(process.env.PREVIOUS) || !['requested','continue'].includes(r.status)) throw Error('Round state cannot be resumed');
+          prepareEditor(r,'.qa-state');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,'head='+r.currentHead+'\n');
+          JS
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.prepare.outputs.head }}
+          path: subject
+          persist-credentials: false
+      - name: Propose requested replacements
+        id: edit
+        continue-on-error: true
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          working-directory: subject
+          prompt-file: ${{ github.workspace }}/.qa-state/prompt.txt
+          output-schema-file: ${{ github.workspace }}/.qa-state/schema.json
+          sandbox: read-only
+          safety-strategy: drop-sudo
+      - name: Capture untrusted replacement data
+        if: always()
+        env:
+          RESULT: ${{ steps.edit.outputs.final-message }}
+        run: |
+          mkdir -p .qa-candidate
+          node -e "require('fs').writeFileSync('.qa-candidate/candidate.json',process.env.RESULT || '')"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-repair-candidate-${{ inputs.round }}
+          path: .qa-candidate/
+          include-hidden-files: true
+          retention-days: 14
+  validate:
+    needs: edit
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      ready: ${{ steps.result.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-repair-state-${{ inputs.previous }}
+          path: .qa-state
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: qa-repair-candidate-${{ inputs.round }}
+          path: .qa-candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.edit.outputs.head }}
+          fetch-depth: 0
+          path: subject
+          persist-credentials: false
+      - name: Validate in credential-free container
+        run: node .qa/scripts/repair-workspace.mjs validate .qa-state/record.json subject .qa-candidate/candidate.json
+      - name: Read trusted validation outcome
+        id: result
+        run: node -e "const fs=require('fs');fs.appendFileSync(process.env.GITHUB_OUTPUT,'ready='+String(JSON.parse(fs.readFileSync('validation.json','utf8')).status==='passed')+'\n')"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-repair-validation-${{ inputs.round }}
+          path: validation.json
+          retention-days: 14
+  review:
+    needs: [edit, validate]
+    if: always() && needs.validate.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-repair-state-${{ inputs.previous }}
+          path: .qa-state
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-repair-candidate-${{ inputs.round }}
+          path: .qa-candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-repair-validation-${{ inputs.round }}
+          path: .qa-validation
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.edit.outputs.head }}
+          fetch-depth: 0
+          path: subject
+          persist-credentials: false
+      - name: Prepare independent review
+        id: prepare
+        env:
+          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          CODEX_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
+        run: |
+          node .qa/scripts/repair-workspace.mjs review .qa-state/record.json subject .qa-candidate/candidate.json
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const r=JSON.parse(fs.readFileSync('.qa-state/record.json','utf8'));
+          const ready=r.config.agent==='claude'?process.env.CLAUDE_KEY:process.env.CODEX_KEY;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,`agent=${r.config.agent}\nready=${ready}\nschema=${JSON.stringify(JSON.parse(fs.readFileSync('.qa-review/schema.json','utf8')))}\n`);
+          JS
+      - name: Independent Codex review
+        id: codex
+        if: steps.prepare.outputs.agent == 'codex' && steps.prepare.outputs.ready == 'true'
+        continue-on-error: true
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          working-directory: subject
+          prompt-file: ${{ github.workspace }}/.qa-review/prompt.txt
+          output-schema-file: ${{ github.workspace }}/.qa-review/schema.json
+          sandbox: read-only
+          safety-strategy: drop-sudo
+      - name: Independent Claude review
+        id: claude
+        if: steps.prepare.outputs.agent == 'claude' && steps.prepare.outputs.ready == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          display_report: false
+          prompt: Read .qa-review/prompt.txt. Review candidate source under subject/. Return only the requested JSON.
+          claude_args: >-
+            --tools "Read,Grep,Glob" --max-turns 30
+            --json-schema '${{ steps.prepare.outputs.schema }}'
+      - name: Capture independent review as data
+        if: always()
+        env:
+          CODEX_RESULT: ${{ steps.codex.outputs.final-message }}
+          CLAUDE_RESULT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          mkdir -p .qa-review-result
+          node -e "require('fs').writeFileSync('.qa-review-result/review.json',process.env.CODEX_RESULT || process.env.CLAUDE_RESULT || '')"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-repair-review-${{ inputs.round }}
+          path: .qa-review-result/
+          include-hidden-files: true
+          retention-days: 14
+  publish:
+    needs: [edit, validate, review]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      decision: ${{ steps.finish.outputs.decision }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: noshpotosh/qa
+          ref: ${{ inputs.qa_ref }}
+          path: .qa
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: qa-repair-state-${{ inputs.previous }}
+          path: .qa-state
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: qa-repair-candidate-${{ inputs.round }}
+          path: .qa-candidate
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: qa-repair-validation-${{ inputs.round }}
+          path: .qa-validation
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: qa-repair-review-${{ inputs.round }}
+          path: .qa-review-result
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ secrets.QA_APP_ID }}
+          private-key: ${{ secrets.QA_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+          permission-checks: read
+          permission-actions: read
+      - name: Publish, verify exact-commit CI, and decide next round
+        id: finish
+        uses: actions/github-script@v7
+        env:
+          ROUND: ${{ inputs.round }}
+        with:
+          github-token: ${{ steps.app.outputs.token }}
+          script: |
+            const fs = require('fs');
+            const {finishRound} = await import(`${process.cwd()}/.qa/scripts/repair-round.mjs`);
+            const record = await finishRound(github,{...context.repo,round:Number(process.env.ROUND),directory:process.cwd()});
+            core.setOutput('decision',record.status);
+            await core.summary.addRaw(`Repair ${record.runId}: ${record.status}. ${record.reason}`).write();
+      - name: Record incomplete round on infrastructure or publication failure
+        if: failure()
+        env:
+          ROUND: ${{ inputs.round }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const file='.qa-state/record.json';
+          const record=JSON.parse(fs.readFileSync(file,'utf8'));
+          record.status='unavailable';
+          record.reason='Round infrastructure or progress publication failed; inspect job logs. No readiness claim.';
+          if(record.rounds.length<Number(process.env.ROUND)) record.rounds.push({number:Number(process.env.ROUND),status:'unavailable'});
+          fs.writeFileSync(file,JSON.stringify(record));
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,record.reason+'\n');
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-repair-state-${{ inputs.round }}
+          path: .qa-state/record.json
+          include-hidden-files: true
+          retention-days: 14

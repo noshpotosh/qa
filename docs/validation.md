@@ -1,5 +1,106 @@
 # v0.2.0 validation record
 
+## THPS4 Milestone 4 live consumer — October 29, 2026
+
+- Wired the clean THPS4 `403ad99` baseline to a committed integration contract
+  (`121a8ca`) covering the original 40 Manuals & Lines criteria. The final
+  installed runtime is pinned to `1d372e6`; source edits occur on its isolated
+  milestone branch, with the source checkout remaining clean.
+- Four independently reviewed checkpoints now cover implementation acceptance,
+  reference-comparison planning, a current-disc script/parameter byte audit, and
+  a static presentation inventory. Tracker revision 115 (1/40) advanced to 120
+  (5/40), with backed-up revision-checked API writes and accepted seed replay.
+  Backups 115–119 were observed; unrelated milestone rows were unchanged.
+- Each accepted checkpoint's configured Tracker validation passed 68/68.
+  Editor-local offline trials retained two localhost-denial failures; those
+  checked-in failed logs are distinguished from controller-observed passing
+  checks. Actual source adapters checked ISO/ELF identity and member/range hashes.
+  Per-resource animation/sound verification remains incomplete; generated
+  inventory review was sampled. The [sanitized live receipt](../examples/validation/thps4-milestone4-pilot.json)
+  records checks, reviews, artifact hashes, attempts, checkpoints and limitations.
+- Real adoption exposed instruction discovery, PATH/toolchain, large-blob and
+  stale-planning-context defects, addressed in QA drafts
+  [14](https://github.com/noshpotosh/qa/pull/14),
+  [15](https://github.com/noshpotosh/qa/pull/15) and
+  [16](https://github.com/noshpotosh/qa/pull/16).
+  Final local suite: 82 passed, two Docker cases skipped; check and actionlint
+  passed. [Hosted QA validation](https://github.com/noshpotosh/qa/actions/runs/40956890103)
+  passed normal validation and both real Docker smoke cases. Controller recovery
+  completed validation of the retained third result without a fourth edit call.
+- The [consumer progress draft](https://github.com/noshpotosh/thps4/pull/3) is
+  published and unmerged. The runner stopped on 33 native-capability-dependent
+  automated criteria, with two human criteria also open. The earlier capture
+  harness path is absent; REA's advertised host tools do not provide a ready
+  PS2 guest-state capture adapter. No original session was advanced, no manual
+  gameplay implementation/fidelity was accepted, and no Unity, signing/device,
+  Backbone or five-minute thermal/cadence run was performed. No hosted consumer
+  checks were observed, and publication does not establish readiness.
+
+## Local milestone runner — October 29, 2026
+
+- 74 automated cases: 72 passed, two Docker cases explicitly skipped locally.
+  `npm run check`, actionlint 1.7.12 and `git diff --check` passed. Tests cover
+  frozen scope, task derivation/scope rejection, dirty-baseline refusal, persisted
+  attempts, unavailable check capabilities, source-mutating checks, final
+  regression before human handoff, no-progress stops, isolated Git checkpoints,
+  interruption recovery and adapter metadata reconciliation.
+- A real macOS Codex CLI pilot passed at implementation commit `19c7560` using
+  the existing account login, actual command sandbox and separate model reviews.
+  A real assertion failed on the baseline; two accepted task checkpoints survived
+  separate invocations and ended at one human handoff after final checks. They
+  share one code commit: the second task verified retained observation evidence.
+  The original checkout remained unchanged. The sanitized
+  [pilot receipt](../examples/validation/local-milestone-pilot.json) records the
+  candidate, checks and artifact hashes. Provider task derivation and Linux
+  sandbox acceptance were not part of this live pilot.
+- A committed archive from `6b07d20` was extracted and installed into a clean
+  `develop`-branch consumer: preview/apply, the packaged milestone scaffold,
+  disabled execution and installed plan preview passed. [Hosted validation on
+  that revision](https://github.com/noshpotosh/qa/actions/runs/40934200426) passed
+  normal tests/checks/workflow linting and both actual Docker smoke cases.
+  Later tracker-revocation and pre-commit concurrency guards have additional
+  local regression coverage and receive the same hosted checks.
+- The isolated THPS4 integration's committed-baseline Tracker suite passed all
+  31 tests with loopback sockets enabled. The baseline capability correctly
+  rejected missing/different reviewed Unity inputs. Tracker revision 115 was
+  observed locally at Milestone 3 66/66, Milestone 4 1/40; this is historical
+  tracker evidence, not a new game acceptance run.
+- THPS4 execution remains disabled. Its original dirty checkout was preserved.
+  Tracker CAS/replay/seed behavior has controlled-transport tests; no live tracker
+  write, Unity run, native capture or device acceptance was performed. A clean
+  reviewed source baseline, the next approved milestone and configured producers
+  are prerequisites for the THPS4 live rehearsal. Existing Actions repair/App
+  acceptance remains pending separately.
+
+## Adoption and requested repair implementation — October 28, 2026
+
+- Local automated coverage exercises release-archive installation, non-default
+  branches, managed upgrades and conflict refusal, repair authorization, stale
+  feedback, unsafe paths, candidate/tree binding, three-round limits, isolated
+  validation invocation, independent-review gates and exact-commit CI acceptance.
+- `npm test`, `npm run check`, and actionlint 1.7.12 pass on the implementation.
+  Container execution is mocked in local tests; Docker and live provider/App
+  acceptance are separate checks.
+- Hosted CI includes two actual container smoke cases, using a digest-pinned
+  official Node image: successful isolated validation and propagation of a failing
+  command. These cases are skipped locally unless `QA_DOCKER_IMAGE` is supplied.
+- The first hosted container run exposed a UID mismatch: a capability-free root
+  could not read the runner-owned private workspace. Validation now runs as the
+  workspace owner's UID/GID with an ephemeral container home; the smoke tests
+  exercise that production invocation.
+- [Hosted PR CI](https://github.com/noshpotosh/qa/actions/runs/40819465755)
+  passed after the UID fix: normal tests/checks/workflow linting and both actual
+  Docker smoke cases succeeded. A committed archive was also built and installed
+  through the real CLI locally; doctor succeeded from a consumer subdirectory.
+  Provider reviews were skipped for the draft PRs and are not included in this
+  passing implementation evidence.
+- No repository secret names are configured in QA at inspection. A live issue
+  repair, existing-PR repair, App-triggered CI and repeated progress updates
+  therefore remain pending. No consumer repair automation was enabled, no new
+  release published, and no merge/protection settings changed.
+
+## Earlier baseline
+
 Validated on October 23, 2026. This record distinguishes implementation checks from live model acceptance.
 
 ## Passed
