@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "date": "2026-10-29",
+  "implementationCommit": "19c7560",
+  "platform": "macOS",
+  "executor": "Codex CLI 0.165.0-alpha.1.2, existing login",
+  "fixture": "tests/live-work-pilot.mjs",
+  "baselineRegression": "answer 0 fails the real answer=42 assertion",
+  "invocationStatuses": [
+    "budget-paused",
+    "budget-paused",
+    "awaiting-human"
+  ],
+  "originalCheckoutUnchanged": true,
+  "branchHead": "8ee7f893b19a4f967bf2da2daedaeb0934d991fa",
+  "checkpoints": [
+    {
+      "id": "c595e5e3-6636-4817-a150-3ed11476e9a1",
+      "task": "fix",
+      "commit": "8ee7f893b19a4f967bf2da2daedaeb0934d991fa"
+    },
+    {
+      "id": "65a46642-2388-4f03-b0bb-399ed5656812",
+      "task": "observe",
+      "commit": "8ee7f893b19a4f967bf2da2daedaeb0934d991fa"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "fix",
+      "changedPaths": [
+        "src/app.mjs",
+        "evidence/note.json"
+      ],
+      "checks": [
+        {
+          "id": "answer",
+          "status": "passed",
+          "exitCode": 0
+        }
+      ],
+      "review": "passed",
+      "resolvedCriteria": [
+        "answer"
+      ],
+      "artifacts": [
+        {
+          "path": "src/app.mjs",
+          "sha256": "a2098bd92b10bf8b816d24b7556b1ce8c49a879d130489065ef1051c17e042f6",
+          "bytes": 26
+        },
+        {
+          "path": "evidence/note.json",
+          "sha256": "fa297c510413bb1730de1db56a3355ec7a758eee49ed10a58a0d84c5cd82d6a0",
+          "bytes": 60
+        }
+      ]
+    },
+    {
+      "id": "observe",
+      "changedPaths": [],
+      "checks": [
+        {
+          "id": "note",
+          "status": "passed",
+          "exitCode": 0
+        }
+      ],
+      "review": "passed",
+      "resolvedCriteria": [
+        "note"
+      ],
+      "artifacts": [
+        {
+          "path": "evidence/note.json",
+          "sha256": "fa297c510413bb1730de1db56a3355ec7a758eee49ed10a58a0d84c5cd82d6a0",
+          "bytes": 60
+        }
+      ]
+    }
+  ],
+  "finalChecks": [
+    {
+      "id": "answer",
+      "status": "passed",
+      "exitCode": 0
+    },
+    {
+      "id": "note",
+      "status": "passed",
+      "exitCode": 0
+    }
+  ],
+  "limitations": [
+    "Two reviewed task checkpoints share one code commit; the observation task reverified existing evidence.",
+    "Task derivation, tracker CAS and crash recovery use controlled test coverage, not this provider pilot.",
+    "No publishing, hosted CI, Unity, native sessions, physical device or live tracker writes were exercised by this pilot."
+  ]
+}

@@ -1,0 +1,342 @@
+{
+  "version": 1,
+  "date": "2026-10-29",
+  "sourceBaseline": "403ad99",
+  "approvedIntegrationBaseline": "121a8caaed243327e06cb24f7a90a36ae7fa77ab",
+  "runtimeSource": "1d372e698d57f6e8a566cd60c8ae31fe72f8a26a",
+  "publishedHead": "20b6c15377c4371fb826558e56a356cb8d7a19f6",
+  "publication": {
+    "status": "published",
+    "head": "20b6c15377c4371fb826558e56a356cb8d7a19f6",
+    "url": "https://github.com/noshpotosh/thps4/pull/3",
+    "ci": "not-verified"
+  },
+  "status": "blocked",
+  "tracker": {
+    "beforeRevision": 115,
+    "afterRevision": 120,
+    "activeMilestoneId": "manuals-lines",
+    "beforeDone": 1,
+    "afterDone": 5,
+    "total": 40,
+    "unrelatedItemsUnchanged": true,
+    "backupRevisionsObserved": [
+      115,
+      116,
+      117,
+      118,
+      119
+    ]
+  },
+  "discSHA256": "88ddb97236636cee12f8149f4de82459821d20a31f380a888b4e554b3538da23",
+  "executableSHA256": "226d4abc283a6a59ec7fe6960337a6f1dce54addd76d1c731f86bf72366be416",
+  "inputIdentity": "adcc8679532075c77181be8bb74c208d37697a66a07cf37b68c3b7a1a8f76dca",
+  "checkpoints": [
+    {
+      "id": "f5ad9e79-ed5d-4a18-8dfa-e4594dffdbf3",
+      "task": "acceptance-contract",
+      "commit": "7b013da79b99baf906ee9b5554e2f50d410b5101"
+    },
+    {
+      "id": "62b698c9-2b7e-4f03-a73e-cd11d0c014e8",
+      "task": "reference-gates",
+      "commit": "ee16f868f003dad511f6ea93e305973146f9dcc2"
+    },
+    {
+      "id": "548af9ad-95c8-4c19-a29b-1efdf4dc2168",
+      "task": "disc-source-audit",
+      "commit": "244724c1af8d9f938f40ecfeb0fd9fc36f87c768"
+    },
+    {
+      "id": "8a1218df-37ff-49eb-9d5c-d347ef3f74d5",
+      "task": "manual-presentation-disc-asset-inventory",
+      "commit": "20b6c15377c4371fb826558e56a356cb8d7a19f6"
+    }
+  ],
+  "tasks": [
+    {
+      "task": "acceptance-contract",
+      "attempts": 3,
+      "summary": "Added explicit completion conditions for acceptance-contract only. Scope check passed; tracker ran 68 tests: 66 passed, 2 failed because sandbox permissions blocked localhost listening. No runtime behavior claimed or control configuration changed.",
+      "resolvedCriteria": [
+        {
+          "id": "manuals.implementation.b757acf0f2",
+          "description": "Define implementation acceptance scope"
+        }
+      ],
+      "review": "passed",
+      "reviewSummary": "No blocking issues. The acceptance contract satisfies the task\u2019s scope-definition criterion without claiming recovered behavior or gameplay acceptance.",
+      "checks": [
+        {
+          "id": "scope",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "{\"version\":1,\"status\":\"passed\",\"scopeSHA256\":\"c7e6668e8fcea6063fb721814c02ae8abc122892163a72193d16b2f3a0261610\",\"criteria\":40,\"mode\":\"scope\",\"runtimeAdmitted\":false,\"meaning\":\"Artifact contract validity only; independent review decides criterion satisfaction. No gameplay fidelity inferred.\"}\n"
+        },
+        {
+          "id": "tracker",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "92709ms)\n\u2714 acceptance progress uses visible denominators and separates phases (0.939417ms)\n\u2714 validation rejects duplicate IDs and malformed acceptance checks (0.6435ms)\n\u2714 atomic persistence, backups, conflict rejection, import/export, restart and origin protection (54.505291ms)\n\u2714 v1 migration preserves work and uses milestone-specific denominators (0.492ms)\n\u2714 legacy disk remains untouched until revision-checked API migration and backs up exact v1 (7.825834ms)\n\u2714 milestone setup preserves existing evidence/checks and is idempotent (1.307709ms)\n\u2139 tests 68\n\u2139 suites 0\n\u2139 pass 68\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 492.051417\n\n"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "Research/evidence/manuals-acceptance-contract.json",
+          "sha256": "f173bddf39bee2c54a2d6f0c18b1114662e0c6a48dd93a8d0c34673cd2aef26f",
+          "bytes": 19515
+        },
+        {
+          "path": ".qa-output/scope.json",
+          "sha256": "6f3e7b76f2f668c1ba33d3d5f7d89616a06da3507fa72a063398534ae3e0d30a",
+          "bytes": 322
+        },
+        {
+          "path": ".qa-output/tracker.tap",
+          "sha256": "55ffbc118399c6081b1f60b4791ccc4acac287f52f8df623c93daeb5480e0831",
+          "bytes": 7338
+        }
+      ],
+      "reviewCoverage": [
+        "Reviewed the supplied patch: one new acceptance-specification file mapping all 40 frozen criteria to observable evidence obligations.",
+        "Confirmed repertoire, baseline and orientation boundaries, exclusions, research prerequisites, and separate numeric, presentation and device obligations.",
+        "Observed controller records show scope passed and tracker passed all 68 tests. The evidence summary\u2019s statement that two tests failed conflicts with those records and appears stale.",
+        "No commands executed, files edited or content published. Git metadata, runtime behavior, other milestone criteria and human acceptance were outside this review."
+      ]
+    },
+    {
+      "task": "reference-gates",
+      "attempts": 1,
+      "summary": "Implemented only reference-gates: three-repeat protocol, exact event gates, route coverage and unresolved numeric measurement requirements. Artifact check passed; tracker tests encountered sandbox localhost EPERM errors. No runtime acceptance claimed.",
+      "resolvedCriteria": [
+        {
+          "id": "manuals.verification.31326e5b2e",
+          "description": "Define reference comparisons"
+        }
+      ],
+      "review": "passed",
+      "reviewSummary": "No blocking issues. The patch satisfies the reference-comparison specification criterion: it defines three-repeat admission, exact event gates, route coverage, and explicit requirements that block numeric acceptance until measurements are resolved.",
+      "checks": [
+        {
+          "id": "comparisons",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "{\"version\":1,\"status\":\"passed\",\"scopeSHA256\":\"c7e6668e8fcea6063fb721814c02ae8abc122892163a72193d16b2f3a0261610\",\"criteria\":40,\"mode\":\"comparisons\",\"runtimeAdmitted\":false,\"meaning\":\"Artifact contract validity only; independent review decides criterion satisfaction. No gameplay fidelity inferred.\"}\n"
+        },
+        {
+          "id": "tracker",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "541ms)\n\u2714 acceptance progress uses visible denominators and separates phases (0.895375ms)\n\u2714 validation rejects duplicate IDs and malformed acceptance checks (0.628ms)\n\u2714 atomic persistence, backups, conflict rejection, import/export, restart and origin protection (54.222208ms)\n\u2714 v1 migration preserves work and uses milestone-specific denominators (0.489875ms)\n\u2714 legacy disk remains untouched until revision-checked API migration and backs up exact v1 (7.577083ms)\n\u2714 milestone setup preserves existing evidence/checks and is idempotent (1.292625ms)\n\u2139 tests 68\n\u2139 suites 0\n\u2139 pass 68\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 493.950958\n\n"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "Research/MANUALS_REFERENCE_GATES.md",
+          "sha256": "a45e079d5aa2929b60d42a58e603c0abb4af1fec8a554abdfd8202a5666c2905",
+          "bytes": 8554
+        },
+        {
+          "path": "Research/evidence/manuals-acceptance-contract.json",
+          "sha256": "5a22b1fdfd2941c373f8d013cd0a8116ccd0afda84ec22801ba3834161805fd0",
+          "bytes": 27212
+        },
+        {
+          "path": "Research/evidence/manuals-reference-gates-check.log",
+          "sha256": "a9fdf098aaafa5ad8a3d6ab74cfcd16a97bc906787ccdaa75e7b9cb036d72efc",
+          "bytes": 299
+        },
+        {
+          "path": "Research/evidence/manuals-reference-gates-tracker.log",
+          "sha256": "504f7ecca9f4e71f31a1545736c62210110da17be8b73cdb57038c39614ff0c0",
+          "bytes": 8372
+        },
+        {
+          "path": ".qa-output/comparisons.json",
+          "sha256": "302ef74d6dc7e82648dcd6752af4c48c399a50c48100d831fdebd13fc77a240c",
+          "bytes": 328
+        },
+        {
+          "path": ".qa-output/tracker.tap",
+          "sha256": "a02046ca36e04fcd02024292e2e4cc842f504ead8ba1530c729a6c1ca837bfdc",
+          "bytes": 7334
+        }
+      ],
+      "reviewCoverage": [
+        "Reviewed both changed files through the controller-provided patch; no project commands executed or files edited.",
+        "Confirmed independent baseline restores, all-repeat evaluation, actor-phase alignment, zero-update event tolerance, input ownership, and rejection/recovery checks.",
+        "Confirmed unresolved units, precision, conversions, calibration, numeric limits, and clock mappings remain explicitly unverified.",
+        "Observed comparison check passed. Observed tracker record reports exit code 0 and 68 passing tests despite environment warnings; the author summary's localhost-error statement does not match that record.",
+        "Runtime fidelity, other milestone criteria, and human acceptance were outside this review."
+      ]
+    },
+    {
+      "task": "disc-source-audit",
+      "attempts": 1,
+      "summary": "Implemented the scoped static disc audit and reproducible producer: three members and 17 byte-bound findings. Source check passed. Native consumers and runtime behavior remain unresolved. Tracker: 66/68 passed; two failed because sandbox localhost listeners were denied. No acceptance configuration changed or commits made.",
+      "resolvedCriteria": [
+        {
+          "id": "manuals.research.d647a056f2",
+          "description": "Audit current-disc manual inputs, scripts and parameters with byte provenance"
+        }
+      ],
+      "review": "passed",
+      "reviewSummary": "No blocking issues in the scoped static source audit. Byte provenance, reproducible production and explicit unresolved consumers satisfy the task criterion. Controller-observed source and tracker checks passed; no project commands were executed during review.",
+      "checks": [
+        {
+          "id": "source",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "s/x9/qvvy_mxd2klfpkg13bfxty_c0000gp/T/xcrun_db-wbzHHXXV' (errno=Operation not permitted)\n2026-10-29 16:02:16.830 xcodebuild[32306:6906257]  DVTFilePathFSEvents: Failed to start fs event stream.\npython3: error: couldn't create cache file '/var/folders/x9/qvvy_mxd2klfpkg13bfxty_c0000gp/T/xcrun_db-UMMdOdsO' (errno=Operation not permitted)\n2026-10-29 16:02:18.059 xcodebuild[32308:6906271]  DVTFilePathFSEvents: Failed to start fs event stream.\n{\"version\": 1, \"status\": \"passed\", \"mode\": \"source\", \"verifiedMembers\": 3, \"verifiedFindings\": 17, \"runtimeAdmitted\": false, \"discSHA256\": \"88ddb97236636cee12f8149f4de82459821d20a31f380a888b4e554b3538da23\"}\n"
+        },
+        {
+          "id": "tracker",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "24833ms)\n\u2714 acceptance progress uses visible denominators and separates phases (0.886084ms)\n\u2714 validation rejects duplicate IDs and malformed acceptance checks (0.634ms)\n\u2714 atomic persistence, backups, conflict rejection, import/export, restart and origin protection (53.07775ms)\n\u2714 v1 migration preserves work and uses milestone-specific denominators (0.477167ms)\n\u2714 legacy disk remains untouched until revision-checked API migration and backs up exact v1 (7.86175ms)\n\u2714 milestone setup preserves existing evidence/checks and is idempotent (1.302125ms)\n\u2139 tests 68\n\u2139 suites 0\n\u2139 pass 68\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 489.296875\n\n"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "Research/MANUALS_SOURCE_AUDIT.md",
+          "sha256": "aabc1bacf6e41abe73de0d062ff3a938214e6422d257b77dbf42e70ae1ab186a",
+          "bytes": 5753
+        },
+        {
+          "path": "Research/evidence/manuals-source-audit.json",
+          "sha256": "b562124d8004c35ddd6cc9fd79cd010471d3256b1137855473cdb00d67b7e96f",
+          "bytes": 264438
+        },
+        {
+          "path": "Research/evidence/manuals-source-check.json",
+          "sha256": "e86439444813ebad0ddd60f96211a279d123b60f5da46252ffd11bd345235149",
+          "bytes": 223
+        },
+        {
+          "path": "Research/evidence/manuals-source-tracker.tap",
+          "sha256": "cd755c28517a584118cbd87705fdd4f660803e719607a7105427ff72e2ce457f",
+          "bytes": 8381
+        },
+        {
+          "path": "Tools/audit_manual_sources.py",
+          "sha256": "2fdd64a01bd732e4e66d0ff749ad21bac8e7de7442c0e077fb6be6afbbebbc5e",
+          "bytes": 6799
+        },
+        {
+          "path": ".qa-output/source.json",
+          "sha256": "e86439444813ebad0ddd60f96211a279d123b60f5da46252ffd11bd345235149",
+          "bytes": 223
+        },
+        {
+          "path": ".qa-output/tracker.tap",
+          "sha256": "407264757db12bf84501de626cb0a79f5ec294c632d777fe0f730d2dc30fef47",
+          "bytes": 7335
+        }
+      ],
+      "reviewCoverage": [
+        "Reviewed the controller-provided diff and all five changed files, sampling the generated token inventory separately from 173 authored changed lines.",
+        "Inspected the producer and existing source checker: observed validation covers three member hashes and 17 finding spans, not decoded token semantics or native consumers.",
+        "The retained tracker transcript records an earlier 66/68 sandbox-limited run; the authoritative controller record shows a subsequent 68/68 passing run.",
+        "Native runtime behavior, Unity, device validation and human acceptance are outside this review. Git metadata was not accessed."
+      ]
+    },
+    {
+      "task": "manual-presentation-disc-asset-inventory",
+      "attempts": 1,
+      "summary": "Added a reproducible static inventory covering 10 script definitions, 21 animation mappings and seven sound members, with hashes and byte/token ranges. Assets check passed; tracker tests recorded 66 passes and two sandbox socket failures. Native consumers, runtime behavior and fidelity remain unverified. No acceptance configuration changed.",
+      "resolvedCriteria": [
+        {
+          "id": "manual-presentation.research.7911674e8f",
+          "description": "Inventory current-disc manual and nose-manual entry, balance, exit and failure assets"
+        }
+      ],
+      "review": "passed",
+      "reviewSummary": "No blocking issues. The static inventory satisfies the scoped asset research criterion; native execution and fidelity remain explicitly unresolved. Controller-observed checks passed, including 68 tracker tests; the retained earlier tracker log records two sandbox failures.",
+      "checks": [
+        {
+          "id": "assets",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "s/x9/qvvy_mxd2klfpkg13bfxty_c0000gp/T/xcrun_db-Zc1E3oA3' (errno=Operation not permitted)\n2026-10-29 16:19:43.528 xcodebuild[86424:6984632]  DVTFilePathFSEvents: Failed to start fs event stream.\npython3: error: couldn't create cache file '/var/folders/x9/qvvy_mxd2klfpkg13bfxty_c0000gp/T/xcrun_db-Aa7mUXgH' (errno=Operation not permitted)\n2026-10-29 16:19:44.759 xcodebuild[86426:6984649]  DVTFilePathFSEvents: Failed to start fs event stream.\n{\"version\": 1, \"status\": \"passed\", \"mode\": \"assets\", \"verifiedMembers\": 6, \"verifiedFindings\": 27, \"runtimeAdmitted\": false, \"discSHA256\": \"88ddb97236636cee12f8149f4de82459821d20a31f380a888b4e554b3538da23\"}\n"
+        },
+        {
+          "id": "tracker",
+          "status": "passed",
+          "exitCode": 0,
+          "observedOutputTail": "7915ms)\n\u2714 acceptance progress uses visible denominators and separates phases (0.883834ms)\n\u2714 validation rejects duplicate IDs and malformed acceptance checks (0.619ms)\n\u2714 atomic persistence, backups, conflict rejection, import/export, restart and origin protection (55.941125ms)\n\u2714 v1 migration preserves work and uses milestone-specific denominators (0.51925ms)\n\u2714 legacy disk remains untouched until revision-checked API migration and backs up exact v1 (8.613542ms)\n\u2714 milestone setup preserves existing evidence/checks and is idempotent (1.309541ms)\n\u2139 tests 68\n\u2139 suites 0\n\u2139 pass 68\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 492.168833\n\n"
+        }
+      ],
+      "artifacts": [
+        {
+          "path": "Research/MANUAL_PRESENTATION_INVENTORY.md",
+          "sha256": "116a9fc3a1b864798f24eaf0af579d0eae332f8ae4281b43d8593064016f8316",
+          "bytes": 3820
+        },
+        {
+          "path": "Research/evidence/manuals-presentation-inventory.json",
+          "sha256": "8ad5727c1d072675a0ddb0db4d7e02c1a456fd8e8d12e9c46ca175659cdc3eaa",
+          "bytes": 294597
+        },
+        {
+          "path": "Research/evidence/manuals-source-audit.json",
+          "sha256": "ca2c389e0e222b399934bc1d087602253f5a116b9d2f0f646a0294619b86cb06",
+          "bytes": 497709
+        },
+        {
+          "path": "Research/evidence/manuals-presentation-assets-check.txt",
+          "sha256": "956df204f4a8a748ef4c04d78d422655a5390a2f9f16fc778b17a5c1f170363b",
+          "bytes": 705
+        },
+        {
+          "path": "Research/evidence/manuals-presentation-tracker.tap",
+          "sha256": "076018092cb3622b20ea5e350aebfd16fee9a409a76bb35c2ca8fbe4aa2617dd",
+          "bytes": 8379
+        },
+        {
+          "path": "Tools/audit_manual_presentation.py",
+          "sha256": "16bde21a4b89e89779e076a3fd6b6fa7af20ff23aacdc733d67932769ee2dc9d",
+          "bytes": 7930
+        },
+        {
+          "path": ".qa-output/source.json",
+          "sha256": "85d0bf0d6a86126c964e993bc2cf9129a6a2d8c5dc73b584aebbf7c9bc628b70",
+          "bytes": 223
+        },
+        {
+          "path": ".qa-output/tracker.tap",
+          "sha256": "4ca111f6331f08f52486f06e728e0225008838f0f297138fc40a83ee125371ad",
+          "bytes": 7344
+        }
+      ],
+      "reviewCoverage": [
+        "Reviewed the supplied authoritative diff, current inventory documentation, producer, sampled mapping provenance and existing asset-check implementation.",
+        "Assets check independently verifies source-member and script-range hashes; it does not validate every animation or sound resource record.",
+        "Generated inventory and audit data reviewed separately from the reported 158 authored changed lines.",
+        "No project commands executed, files edited or messages published. Runtime, reimport, device and human acceptance are outside this review."
+      ]
+    }
+  ],
+  "planningEpisodes": [
+    {
+      "context": "legacy",
+      "failures": 3,
+      "reason": "Cannot replace an existing task"
+    }
+  ],
+  "remaining": {
+    "automatedCapabilityBlocked": 33,
+    "human": 2,
+    "capabilities": [
+      "native-capture"
+    ]
+  },
+  "limitations": [
+    "Research-only progress: no manual gameplay implementation or native route fidelity accepted.",
+    "Editor-local tracker trials retained two localhost-denial failures; controller-configured network-enabled tracker checks passed all 68.",
+    "Acceptance-contract kept its original three attempts; controller recovery completed validation/review of the third result without another edit invocation.",
+    "The earlier native harness source path is absent; no existing original-game session was advanced.",
+    "Unity, signing/device/Backbone and five-minute cadence/thermal acceptance remain unexecuted.",
+    "No hosted consumer checks were observed; publication does not establish hosted CI readiness.",
+    "The assets adapter verifies member/range hashes, not every individual animation/sound record; independent review sampled the generated inventory."
+  ]
+}

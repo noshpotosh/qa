@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "milestones": [
+    {
+      "id": "milestone-1",
+      "title": "Define the first bounded milestone",
+      "scope": "Replace this text with the approved goal and explicit exclusions before running.",
+      "allowedPaths": ["src/**", "tests/**", "docs/**"],
+      "finalChecks": ["project-checks"],
+      "criteria": [
+        {
+          "id": "behavior",
+          "description": "Replace with an observable acceptance criterion and its meaningful checks.",
+          "kind": "automated",
+          "done": false,
+          "evidence": [],
+          "checks": ["project-checks"]
+        }
+      ],
+      "tasks": []
+    }
+  ]
+}
