@@ -60,3 +60,14 @@ test("init refuses symlink traversal and mutable references", (t) => {
   assert.throws(() => initialize(p, { ref: "main" }));
   assert(!fs.existsSync(path.join(p, ".qa.json")));
 });
+test('existing managed guidance gains continuation once without replacing custom instructions', (t) => {
+  const p = temp(t), ref = 'a'.repeat(40);
+  const original = 'Local instructions\n<!-- qa:standards -->\nCustomized standards text\n';
+  fs.writeFileSync(path.join(p, 'AGENTS.md'), original);
+  initialize(p, { ref, apply: true });
+  const updated = fs.readFileSync(path.join(p, 'AGENTS.md'), 'utf8');
+  assert(updated.startsWith(original));
+  assert(updated.includes('.qa/instructions/continuation.md'));
+  initialize(p, { ref, apply: true });
+  assert.equal(fs.readFileSync(path.join(p, 'AGENTS.md'), 'utf8'), updated);
+});
