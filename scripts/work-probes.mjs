@@ -34,6 +34,10 @@ export async function refreshCapabilities(executor, context, state, directory) {
   const added = available.filter((id) => !previous.includes(id));
   state.probes = records; state.available = available; context.available = available;
   if (added.length && state.milestone.version === 2) state.noProgress = 0;
+  if (state.unavailableChecks) for (const id of Object.keys(state.unavailableChecks)) {
+    const required = state.config.checks[id]?.requires || [];
+    if (required.some((name) => added.includes(name)) && required.every((name) => available.includes(name))) delete state.unavailableChecks[id];
+  }
   for (const task of state.tasks) {
     const attempt = state.states[task.id];
     const required = taskCapabilities(task, state.milestone, state.config);
