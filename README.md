@@ -30,6 +30,8 @@ Release archives are built from committed source with `node scripts/package-rele
 
 Use `init --milestones` to propose a disabled local execution scaffold. Define and commit a bounded scope and meaningful checks, enable it, then run `qa milestone run ID --approve`. The runner derives ready tasks, edits in an isolated worktree, validates and requests independent reviews until completion, its budget, a blocker or human acceptance. `resume` retains progress and retry limits. See [milestone setup and commands](docs/milestones.md) and the [THPS4 tracker example](examples/thps4/README.md). Local runs use existing Codex CLI authentication; they require neither Actions secrets nor a publishing App.
 
+Opt-in [v2 milestone execution](docs/milestones-v2.md) separates prerequisite research from acceptance, adds sandboxed capability preflight, and retains reusable acquisition receipts. Existing v1 runs require an explicit reviewed migration; their evidence and retry budgets are preserved.
+
 ## Skills and profiles
 
 [AGENTS.md](AGENTS.md) indexes all skills. `quality-review` coordinates plan, staged, PR and audit modes. The new skills cover delivery discipline, tests, security/data integrity, reproducibility, evidence, presentation, realtime systems, asset pipelines and hardware validation.

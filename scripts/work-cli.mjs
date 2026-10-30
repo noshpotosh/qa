@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import { loadConfig } from "../lib/config.mjs";
 import { inspectRepository } from "../lib/install.mjs";
 import { selectReady } from "../lib/work-plan.mjs";
@@ -9,11 +10,23 @@ import { runMilestone } from "./work-runner.mjs";
 import { acceptCriterion } from "./work-operator.mjs";
 import { publishMilestone } from "./work-publish.mjs";
 import { recoverValidation } from "./work-recovery.mjs";
+import { preflightMilestone } from "./work-preflight.mjs";
+import { recoverOperation } from "./work-operation-recovery.mjs";
+import { migrateMilestone } from "./work-migrate.mjs";
 
 export async function workCli(positionals, values) {
   const root = inspectRepository(process.cwd()).root;
   const config = loadConfig(values.config || path.join(root, ".qa.json")).work;
   const [operation, id] = positionals;
+  if (operation === "migrate") {
+    if (values["to-version"] !== "2" || !values.migration) throw Error("migrate requires --to-version 2 --migration MAPPING.json");
+    return migrateMilestone(root, config, id, { mapping: JSON.parse(fs.readFileSync(values.migration, "utf8")), apply: !!values.apply, approve: !!values.approve });
+  }
+  if (operation === "preflight") return preflightMilestone(root, config, id);
+  if (operation === "reconcile-operation") {
+    if (!values.operation) throw Error("reconcile-operation requires --operation RECEIPT_ID");
+    return recoverOperation(root, config, id, values.operation);
+  }
   if (operation === "recover-validation") {
     if (!values.task) throw Error("recover-validation requires --task ID");
     return recoverValidation(root, config, id, values.task);
