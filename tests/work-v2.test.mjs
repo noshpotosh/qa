@@ -115,3 +115,19 @@ test('uncertain acquisition retains the editor candidate and resumes after verif
   assert.equal(result.status, 'completed'); assert.equal(captures, 1); assert.equal(edits, 1);
   state = loadRun(f.root, 'demo').state; assert.equal(state.states.fix.attempts, 1);
 });
+
+test('focus narrows work selection, persists across resume and never completes the full milestone', async (t) => {
+  const f = v2Fixture(t), m = f.snapshot.milestone;
+  m.criteria.push({ ...m.criteria[0], id: 'unrelated', description: 'Other feature' });
+  m.tasks.push({ ...m.tasks[0], id: 'unrelated', criteria: ['unrelated'], priority: 100 }); saveV2(f);
+  const factory = (c) => ({ ...executor(c), execute: async (milestone, task, feedback) => {
+    assert.equal(task.id, 'fix'); return executor(c).execute(milestone, task, feedback);
+  } });
+  const result = await runMilestone(f.root, f.config, 'demo', { approve: true, focus: ['correct'], executorFactory: factory });
+  assert.equal(result.status, 'focus-completed'); assert.deepEqual(result.open, ['unrelated']);
+  const resumed = await runMilestone(f.root, f.config, 'demo', { resume: true, executorFactory: factory });
+  assert.equal(resumed.status, 'focus-completed'); assert.deepEqual(resumed.focus, ['correct']);
+  await assert.rejects(runMilestone(f.root, f.config, 'demo', { resume: true, focus: ['unknown'] }), /Focus requires/);
+  const all = await runMilestone(f.root, f.config, 'demo', { resume: true, focus: [], executorFactory: executor });
+  assert.equal(all.status, 'completed');
+});

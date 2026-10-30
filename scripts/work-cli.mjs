@@ -32,11 +32,13 @@ export async function workCli(positionals, values) {
     return recoverValidation(root, config, id, values.task);
   }
   if (["run", "resume"].includes(operation)) {
+    if (values.focus && values["all-criteria"]) throw Error("Choose --focus or --all-criteria, not both");
     const abort = new AbortController();
     const stop = () => abort.abort();
     process.once("SIGINT", stop); process.once("SIGTERM", stop);
     try {
-      const result = await runMilestone(root, config, id, { approve: !!values.approve, resume: operation === "resume", retryUnavailable: !!values["retry-unavailable"], signal: abort.signal,
+      const result = await runMilestone(root, config, id, { approve: !!values.approve, resume: operation === "resume", retryUnavailable: !!values["retry-unavailable"],
+        focus: values["all-criteria"] ? [] : values.focus !== undefined ? values.focus.split(",") : undefined, signal: abort.signal,
         onProgress: (event) => console.error(`${event.phase}: ${event.task}`) });
       if ((config.publication === "run-end" && !["budget-paused", "interrupted"].includes(result.status)) || (config.publication === "milestone-end" && result.status === "completed")) {
         try { result.publication = publishMilestone(root, id); }

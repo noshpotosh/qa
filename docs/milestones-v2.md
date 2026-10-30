@@ -101,3 +101,16 @@ repeating its approved apply; concurrent edits are refused rather than overwritt
 `status` separates accepted criteria, reviewed intermediate progress, capability
 changes, acquisition executions/reuse and operator interventions. These are
 observations about the run, not a percentage estimate of remaining game work.
+
+## Focus a pilot
+
+Use `milestone resume ID --focus criterion-a,criterion-b` to select a v2 pilot
+slice. The controller persists that focus across resumes and only selects tasks
+whose criteria are all in the slice. Attempts and failure budgets are preserved.
+The planner can derive prerequisites for those criteria; unrelated existing tasks
+remain in the journal. Finish any retained candidate before excluding its criteria.
+
+Focused acceptance still requires the configured checks and final validation.
+The result is `focus-completed`, not completion of the entire milestone. Use
+`--all-criteria` to explicitly restore full milestone scheduling. Focus does not
+weaken acceptance requirements or grant missing capabilities.
