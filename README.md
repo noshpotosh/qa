@@ -61,3 +61,5 @@ actionlint .github/workflows/*.yml
 ```
 
 See [migration and security](docs/migration.md), [behavioral evaluation](docs/evaluation.md), and the [validation record](docs/validation.md). The repository's initial release is `v0.1.0`; the `0.2.0` implementation adds nine skills, structured reports, a CLI, provider parity and safer publishing. Live provider acceptance is tracked separately from mechanical CI.
+
+For outcome-directed work, see [continuation and interruption recovery](docs/outcome-continuation.md). The new scheduling policy is opt-in; protected consumer controls require a reviewed activation.

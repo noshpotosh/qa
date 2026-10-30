@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "date": "2026-10-30",
+  "policy": "outcome-v1",
+  "policySourceCommit": "65848a3eda1b2c12013b77e5227bc3d5ae95e524",
+  "consumer": "THPS4 local manual-entry research",
+  "experiment": "One outcome-directed chat prompt using continuation instructions, without activating new runner controls",
+  "observed": {
+    "startedTaskAttempts": 5,
+    "verifiedWorkWindowSeconds": 834.440945,
+    "linkedExecutableComparisons": 3,
+    "offlineProposalTests": 15,
+    "runnerInvoked": false,
+    "focusedCriteriaAcceptedBefore": 0,
+    "focusedCriteriaAcceptedAfter": 0,
+    "focusedCriteriaTotal": 6,
+    "journalTasksBefore": 19,
+    "journalTasksAfter": 19,
+    "journalAttemptsBefore": 22,
+    "journalAttemptsAfter": 22,
+    "protectedControlsActivated": false,
+    "elapsedSeconds": 1000.918148
+  },
+  "independentVerification": {
+    "comparisonProducersRerun": 3,
+    "retainedReportsReproduced": 3,
+    "proposalTestsRerun": 15,
+    "proposalTestsPassed": 15,
+    "method": "The originating QA chat inspected the producers and their explicit external-call boundaries, reran all three offline producers, compared JSON outputs with retained reports, and reran the inactive observer tests. No native session was contacted."
+  },
+  "stoppingReason": "approval required",
+  "remainingDependency": "Runtime VM-object observations absent from retained captures; an inactive bounded observer proposal was prepared for separate review and activation in a newly admitted session",
+  "assessment": "The selected chat-continuation criterion was met: multiple linked verified steps, followed without another prompt by a concrete unblock proposal. This does not establish runner live acceptance, playable behavior, full VM semantics, or general agent reliability.",
+  "limitations": [
+    "One local chat trial, not a repeated behavioral benchmark.",
+    "Offline instruction execution includes explicitly supplied external-call context; it is not original-runtime observation or production gameplay.",
+    "The active consumer runner, journal, retry budgets and acceptance gates were not changed.",
+    "The earlier controller exit cause remains unknown.",
+    "Observer tests cover an inactive proposal; they do not authorize activation or establish runtime safety and fidelity."
+  ]
+}

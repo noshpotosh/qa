@@ -87,3 +87,27 @@ test('migration does not manufacture capability progress or reset no-progress bu
   const { state } = loadRun(f.root, 'demo');
   assert.equal(state.noProgress, 3); assert.deepEqual(state.available, ['native']);
 });
+test('v2 continuation adoption preserves historical attempts and preparation streak without inventing resolutions', (t) => {
+  const f = migrationFixture(t);
+  migrateMilestone(f.root, f.config, 'demo', { mapping: f.mapping, apply: true, approve: true });
+  const { state, directory } = loadRun(f.root, 'demo');
+  state.tasks[0].purpose = 'prepare';
+  state.states.fix.status = 'done'; state.checkpoints = [{ task: 'fix', id: 'historical' }];
+  saveRun(directory, state);
+  const m = structuredClone(state.milestone);
+  m.prerequisites = [{ id: 'behavior', criteria: ['correct'], question: 'What is the behavior?', evidence: 'Retained observed comparison', unlocks: 'Implement behavior' }];
+  m.tasks[0].purpose = 'prepare'; m.tasks[0].prerequisites = ['behavior'];
+  fs.writeFileSync(path.join(f.root, '.qa-work.json'), JSON.stringify({ version: 2, milestones: [m] }));
+  git(f.root, ['add', '.qa-work.json']); git(f.root, ['commit', '-m', 'Approve continuation ledger']);
+  const config = resolveWork({ ...f.config, continuation: 'outcome-v1' });
+  const mapping = { version: 2, expectedApproval: state.approval, expectedSourceHead: git(f.root, ['rev-parse', 'HEAD']).trim(), expectedWorkHead: state.head, tasks: m.tasks };
+  const before = fs.readFileSync(path.join(directory, 'state.json'), 'utf8');
+  const preview = migrateMilestone(f.root, config, 'demo', { mapping });
+  assert.equal(fs.readFileSync(path.join(directory, 'state.json'), 'utf8'), before);
+  assert.throws(() => migrateMilestone(f.root, config, 'demo', { mapping, apply: true, approve: true }), /expectedTargetApproval/);
+  mapping.expectedTargetApproval = preview.newApproval;
+  migrateMilestone(f.root, config, 'demo', { mapping, apply: true, approve: true });
+  const after = loadRun(f.root, 'demo').state;
+  assert.equal(after.states.fix.attempts, 2); assert.equal(after.preparationStreak, 1);
+  assert.deepEqual(after.resolvedPrerequisites, {}); assert.deepEqual(after.receipts, state.receipts);
+});

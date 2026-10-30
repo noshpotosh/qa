@@ -1,3 +1,4 @@
+import { outcomeMode } from '../lib/work-continuation.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -10,7 +11,8 @@ import { workspaceSnapshot } from './work-evidence.mjs';
 
 function buildMigration(root, config, id, mapping) {
   const { state, directory } = loadRun(root, id);
-  if (config.version !== 2 || mapping.version !== 2 || state.milestone.version === 2) throw Error('Migration requires a v1 journal and a committed v2 target');
+  const adoptingContinuation = state.milestone.version === 2 && !outcomeMode(state.config) && outcomeMode(config);
+  if (config.version !== 2 || mapping.version !== 2 || (state.milestone.version === 2 && !adoptingContinuation)) throw Error('Migration requires a v1 journal or explicit v2 continuation adoption and a committed v2 target');
   if (state.processes.some((p) => alive(p.pid)) || state.pending || state.operatorPending || state.validationCandidate || Object.values(state.operationReceipts || {}).some((r) => r.status === 'pending')) throw Error('Resolve live processes or pending operations before migration');
   const sourceHead = git(root, ['rev-parse', 'HEAD']).trim();
   if (mapping.expectedApproval !== state.approval || mapping.expectedSourceHead !== sourceHead || mapping.expectedWorkHead !== state.head) throw Error('Migration preview identities are stale');
@@ -54,6 +56,15 @@ function buildMigration(root, config, id, mapping) {
     next.failureKeys[key] = Math.max(next.failureKeys[key] || 0, next.failureKeys[attempt.key] || 0);
     attempt.key = key;
   }
+  if (outcomeMode(config)) {
+    next.resolvedPrerequisites = {}; // Historical research is not retrospective prerequisite acceptance.
+    next.preparationStreak = 0;
+    for (const checkpoint of [...state.checkpoints].reverse()) {
+      const task = state.tasks.find((t) => t.id === checkpoint.task);
+      if (task?.purpose !== 'prepare' || state.receipts[task.id]?.operations?.length) break;
+      next.preparationStreak++;
+    }
+  }
   next.available = (state.available || []).filter((id) => Object.hasOwn(config.capabilities, id)); next.probes = {}; next.finalChecks = null;
   return { state, next, directory, entries, sourceHead, sourceSnapshot: fingerprint(workspaceSnapshot(root)), workFiles: workspaceSnapshot(state.worktree), workSnapshot: fingerprint(workspaceSnapshot(state.worktree)) };
 }
@@ -71,12 +82,14 @@ export function migrateMilestone(root, config, id, { mapping, apply = false, app
       if (!apply) return { version: 2, applied: false, sourceHead: proposal.sourceHead, workHead: proposal.state.head,
         oldApproval: proposal.state.approval, newApproval: proposal.next.approval, tasks: proposal.next.tasks,
         revalidation: proposal.next.revalidation, changedControls: proposal.entries.map((e) => e.path), preserved: ['attempts', 'failureKeys', 'receipts', 'checkpoints', 'tracker bindings'] };
+      if (outcomeMode(proposal.next.config) && mapping.expectedTargetApproval !== proposal.next.approval) throw Error('Continuation activation requires expectedTargetApproval from the reviewed preview');
       const nonce = crypto.randomUUID();
       transaction = { ...proposal, nonce, createdAt: new Date().toISOString() };
       atomicJSON(path.join(proposal.directory, `migration-backup-${nonce}.json`), proposal.state);
       atomicJSON(transactionFile, transaction);
     }
     const { state, next, entries, sourceHead, directory, nonce } = transaction;
+    if (outcomeMode(next.config) && mapping.expectedTargetApproval !== next.approval) throw Error('Continuation activation requires expectedTargetApproval from the reviewed preview');
     if (git(root, ['rev-parse', 'HEAD']).trim() !== sourceHead || fingerprint(workspaceSnapshot(root)) !== transaction.sourceSnapshot) throw Error('Source changed during migration');
     const current = loadRun(root, id).state;
     if (![state.approval, next.approval].includes(current.approval)) throw Error('Concurrent journal migration');
@@ -107,7 +120,7 @@ export function migrateMilestone(root, config, id, { mapping, apply = false, app
       }
     } else if (!transaction.tree || git(state.worktree, ['rev-parse', 'HEAD^']).trim() !== state.head || git(state.worktree, ['rev-parse', 'HEAD^{tree}']).trim() !== transaction.tree || !git(state.worktree, ['show', '-s', '--format=%B']).includes(`QA-Migration: ${nonce}`)) throw Error('Unrecognized concurrent migration commit');
     next.head = head; next.generation = (state.generation || 0) + 1;
-    next.events.push({ at: transaction.createdAt, type: 'migrated', from: 1, to: 2, oldApproval: state.approval, newApproval: next.approval });
+    next.events.push({ at: transaction.createdAt, type: 'migrated', from: state.milestone.version || 1, to: 2, continuation: config.continuation || null, oldApproval: state.approval, newApproval: next.approval });
     atomicJSON(path.join(directory, 'state.json'), next);
     fs.renameSync(transactionFile, path.join(directory, `migration-completed-${nonce}.json`));
     return { version: 2, applied: true, head, approval: next.approval, revalidation: next.revalidation };
