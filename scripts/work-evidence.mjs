@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import os from "node:os";
 import { execFileSync } from "node:child_process";
 import { git } from "../lib/git.mjs";
 import { fingerprint, allowedChange, relativePath } from "../lib/work-plan.mjs";
@@ -27,28 +28,30 @@ export function workspaceSnapshot(root, excluded = []) {
   }
   return result;
 }
-export function headSnapshot(root) {
-  const result = {};
-  for (const row of git(root, ["ls-tree", "-rz", "HEAD"]).split("\0").filter(Boolean)) {
-    const match = /^(\d+) (\w+) [0-9a-f]+\t([\s\S]+)$/.exec(row);
-    if (match[2] !== "blob") throw Error("Submodule workspaces require a custom provisioner");
-    const data = execFileSync("git", ["-C", root, "show", `HEAD:${match[3]}`], { maxBuffer: 64 * 1024 * 1024 });
-    result[match[3]] = match[1] === "120000" ? { link: data.toString("utf8") }
-      : { hash: crypto.createHash("sha256").update(data).digest("hex"), executable: match[1] === "100755" };
+function blobSnapshot(root, oid, mode, file) {
+  const fd = fs.openSync(file, "w", 0o600);
+  try { execFileSync("git", ["-C", root, "cat-file", "blob", oid], { stdio: ["ignore", fd, "pipe"], maxBuffer: 1024 * 1024 }); }
+  finally { fs.closeSync(fd); }
+  if (mode === "120000") {
+    if (fs.statSync(file).size > 4096) throw Error("Unsupported oversized symlink");
+    return { link: fs.readFileSync(file, "utf8") };
   }
-  return result;
+  return { hash: fileHash(file), executable: mode === "100755" };
 }
-export function indexSnapshot(root) {
-  const result = {};
-  for (const row of git(root, ["ls-files", "--stage", "-z"]).split("\0").filter(Boolean)) {
-    const match = /^(\d+) [0-9a-f]+ (\d+)\t([\s\S]+)$/.exec(row);
-    if (!match || match[2] !== "0" || match[1] === "160000") throw Error("Unmerged or unsupported index entry");
-    const data = execFileSync("git", ["-C", root, "show", `:${match[3]}`], { maxBuffer: 64 * 1024 * 1024 });
-    result[match[3]] = match[1] === "120000" ? { link: data.toString("utf8") }
-      : { hash: crypto.createHash("sha256").update(data).digest("hex"), executable: match[1] === "100755" };
-  }
-  return result;
+function gitSnapshot(root, indexed) {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "qa-blob-")), result = {};
+  try {
+    const rows = git(root, indexed ? ["ls-files", "--stage", "-z"] : ["ls-tree", "-rz", "HEAD"]).split("\0").filter(Boolean);
+    for (const row of rows) {
+      const match = indexed ? /^(\d+) ([0-9a-f]+) (\d+)\t([\s\S]+)$/.exec(row) : /^(\d+) (\w+) ([0-9a-f]+)\t([\s\S]+)$/.exec(row);
+      if (!match || (indexed ? match[3] !== "0" || match[1] === "160000" : match[2] !== "blob")) throw Error("Unmerged or unsupported Git entry");
+      result[match[4]] = blobSnapshot(root, indexed ? match[2] : match[3], match[1], path.join(temporary, "blob"));
+    }
+    return result;
+  } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 }
+export const headSnapshot = (root) => gitSnapshot(root, false);
+export const indexSnapshot = (root) => gitSnapshot(root, true);
 export function resourceIdentity(resources) {
   const result = [];
   function visit(source, relative) {

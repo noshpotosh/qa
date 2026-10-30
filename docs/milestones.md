@@ -47,6 +47,12 @@ After repairing unavailable execution or validation infrastructure, use
 unavailability.
 Prior attempts and equivalent-task failure limits are retained; exhausted,
 scope-rejected and ordinary validation-failed tasks are not reset.
+Completed editor output is checkpointed before validation. A controller buffer
+failure can resume checks/review of that exact candidate without another edit
+invocation. For an initial-version `spawnSync git ENOBUFS` failure, use
+`milestone recover-validation ID --task TASK`, then `milestone resume ID`.
+Recovery requires an unambiguous original editor result and unchanged source;
+it retains all attempts and does not reopen rejected validation or scope.
 
 `plan` reads the contract without invoking the model. Empty task lists are valid:
 the runner derives small tasks inside the frozen scope and submits the proposed
@@ -60,6 +66,13 @@ attempts persist, with at most three attempts per equivalent task. Resume does
 not reset failures by renaming tasks. Three tasks with no changed source,
 retained artifact or resolved criterion stop for no progress. The operator must
 explicitly start each resumed invocation; this is not a background daemon.
+Configured check outputs do not themselves count as project progress, even if
+their timestamps or timings change. New source, resolved criteria or new
+editor-declared project evidence are required. Invalid planning proposals are
+capped at three for the same planning context; reviewed progress or changed
+capabilities can refresh that context. Previous planning failures remain in the
+journal, and per-task editing attempts are never reset. Missing capabilities
+are reported for unassigned criteria as well as existing tasks.
 
 ## Checks and input resources
 

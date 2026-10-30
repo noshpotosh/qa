@@ -31,8 +31,12 @@ try {
       milestones: { type: "boolean" },
       approve: { type: "boolean" },
       "retry-unavailable": { type: "boolean" },
+      task: { type: "string" },
       criterion: { type: "string" },
       evidence: { type: "string" },
+      operation: { type: "string" },
+      migration: { type: "string" },
+      "to-version": { type: "string" },
     },
   });
   const command = positionals[0],
