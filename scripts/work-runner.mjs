@@ -4,7 +4,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { git } from "../lib/git.mjs";
-import { fingerprint, selectReady, validateProposal, validateBindings } from "../lib/work-plan.mjs";
+import { fingerprint, selectReady, validateProposal, validateBindings, taskChecks, taskCapabilities } from "../lib/work-plan.mjs";
 import { effectiveMilestone, startAttempt, failAttempt, handoff, preparePlanningContext } from "../lib/work-state.mjs";
 import { createRun, loadRun, saveRun, storePath, acquireLock, reconcileRun } from "./work-store.mjs";
 import { workspaceSnapshot, headSnapshot, indexSnapshot, changedFiles, captureArtifacts, retainArtifacts, resourceIdentity } from "./work-evidence.mjs";
@@ -23,7 +23,8 @@ function standards() {
 }
 function pendingPlanning(state, milestone) {
   return milestone.criteria.filter((c) => !c.done && c.kind === "automated" &&
-    !state.tasks.some((t) => t.criteria.includes(c.id) && state.states[t.id]?.status !== "done"));
+    !state.tasks.some((t) => t.criteria.includes(c.id) && state.states[t.id]?.status !== "done" &&
+      (milestone.version !== 2 || taskCapabilities(t, milestone, state.config).every((id) => state.available.includes(id)))));
 }
 function assertActive(context) {
   if (context.signal?.aborted) throw Error("Run interrupted; partial workspace retained");
@@ -40,7 +41,7 @@ async function checkSet(executor, config, ids, context) {
   return results;
 }
 async function deriveTasks(executor, state, milestone) {
-  const criteria = pendingPlanning(state, milestone).filter((c) => c.checks.every((id) =>
+  const criteria = pendingPlanning(state, milestone).filter((c) => milestone.version === 2 || c.checks.every((id) =>
     (state.config.checks[id]?.requires || []).every((capability) => (state.available || []).includes(capability))));
   if (!criteria.length) return false;
   preparePlanningContext(state, criteria);
@@ -79,7 +80,9 @@ function finishPending(state, directory) {
     state.revalidation = (state.revalidation || []).filter((criterionId) => criterionId !== id);
   }
   if (!state.checkpoints.some((c) => c.id === operation.id)) state.checkpoints.push({ id: operation.id, task: operation.taskId, commit: state.head });
-  state.noProgress = operation.changed.length || newEvidence || operation.receipt.review.resolvedSources.length ? 0 : (state.noProgress || 0) + 1;
+  const progressed = state.milestone.version === 2 ? operation.receipt.review.progress?.advanced || operation.receipt.review.resolvedSources.length
+    : operation.changed.length || newEvidence || operation.receipt.review.resolvedSources.length;
+  state.noProgress = progressed ? 0 : (state.noProgress || 0) + 1;
   state.pending = null;
   state.validationCandidate = null;
 }
@@ -109,7 +112,7 @@ async function inspectCandidate(executor, context, state, directory, task, input
   const candidate = workspaceSnapshot(state.worktree);
   assertInputs(context);
   changedFiles(before, candidate, state.milestone, context.protectedPaths);
-  const ids = [...task.checks, ...task.criteria.flatMap((id) => state.milestone.criteria.find((c) => c.id === id).checks)];
+  const ids = taskChecks(task, state.milestone);
   const checks = await checkSet(executor, state.config, ids, context);
   if (checks.some((c) => c.status !== "passed")) throw Object.assign(Error("Observed validation failed"), { feedback: checks, terminal: checks.some((c) => c.status === "unavailable"), unavailable: checks.some((c) => c.status === "unavailable") });
   if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Checks changed source; configure fresh ignored output paths");
@@ -132,6 +135,13 @@ async function inspectCandidate(executor, context, state, directory, task, input
   const review = await executor.review(state.milestone, task, evidence);
   if (review.scope !== "within-request" || review.report.status !== "passed") throw Object.assign(Error("Independent review did not pass"), { feedback: review, terminal: review.scope !== "within-request" || ["unavailable", "skipped"].includes(review.report.status) });
   if (review.resolvedSources.some((id) => !task.criteria.includes(id) || state.milestone.criteria.find((c) => c.id === id)?.kind !== "automated")) throw Error("Reviewer claimed unrequested or human acceptance");
+  if (state.milestone.version === 2) {
+    if (task.purpose === "prepare" && review.resolvedSources.length) throw Error("Preparation cannot grant criterion acceptance");
+    const p = review.progress;
+    if (!p || typeof p.advanced !== "boolean" || typeof p.answer !== "string" || !Array.isArray(p.evidencePaths) ||
+        p.evidencePaths.some((name) => !artifacts.some((a) => a.path === name)) ||
+        (p.advanced && (!p.answer.trim() || !p.evidencePaths.length))) throw Error("Progress requires an independently reviewed answer and observed artifacts");
+  }
   if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Read-only review changed source");
   const changed = changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths);
   assertActive(context);
@@ -226,9 +236,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
       if (state.status === "unavailable") break;
       continue;
     }
-    const tasks = state.tasks.map((task) => ({ ...task, capabilities: [...new Set([...task.capabilities,
-      ...[...task.checks, ...task.criteria.flatMap((id) => milestone.criteria.find((c) => c.id === id).checks)]
-        .flatMap((id) => config.checks[id]?.requires || [])])] }));
+    const tasks = state.tasks.map((task) => ({ ...task, capabilities: taskCapabilities(task, milestone, config) }));
     const ready = selectReady(milestone, tasks, state.states, available);
     if (!ready.length) {
       if (await deriveTasks(executor, state, milestone)) { saveRun(directory, state, { type: "planned" }); continue; }
