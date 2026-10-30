@@ -50,3 +50,9 @@ test("toolchain admission protects launchers and admits only the npm package wit
   assert(!text.includes(JSON.stringify(tools) + ' = "read"'));
   assert(text.includes('"TMPDIR" = ' + JSON.stringify(path.join(directory, "scratch"))));
 });
+test('process result and exit callback retain the actual signal and timing', async () => {
+  let ended;
+  const r = await runProcess([process.execPath, '-e', 'process.kill(process.pid,"SIGTERM")'], { timeoutMs: 10000, onEnd: (result) => { ended = result; } });
+  assert.equal(r.signal, 'SIGTERM'); assert.equal(r.code, null); assert.equal(r.status, 'unavailable');
+  assert.equal(ended.signal, 'SIGTERM'); assert(r.endedAt >= r.startedAt);
+});

@@ -10,7 +10,8 @@ export async function runProcess(argv, { cwd, input = "", timeoutMs, signal,
   if (!Array.isArray(argv) || !argv.length || timeoutMs <= 0) throw Error("Invalid bounded process request");
   if (signal?.aborted) throw Error("Run interrupted");
   const child = spawn(argv[0], argv.slice(1), { cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe"] });
-  let output = "", bytes = 0, reason = null, timer, killTimer, fd;
+  let output = "", bytes = 0, reason = null, timer, killTimer, fd, outcome;
+  const startedAt = Date.now();
   if (log) fd = fs.openSync(log, "wx", 0o600);
   const stop = (why) => {
     if (reason) return;
@@ -37,14 +38,15 @@ export async function runProcess(argv, { cwd, input = "", timeoutMs, signal,
     if (child.pid) onStart(child.pid);
     const result = await new Promise((resolve) => {
       child.on("error", (error) => resolve({ code: null, reason: error.message }));
-      child.on("close", (code) => resolve({ code, reason }));
+      child.on("close", (code, signal) => resolve({ code, signal, reason }));
     });
-    return { ...result, status: result.reason ? "unavailable" : result.code === 0 ? "passed" : "failed", output, bytes };
+    outcome = { ...result, startedAt, endedAt: Date.now(), status: result.reason || result.signal ? "unavailable" : result.code === 0 ? "passed" : "failed", output, bytes };
+    return outcome;
   } finally {
     try { process.kill(-child.pid, "SIGKILL"); } catch { /* No surviving owned children. */ }
     clearTimeout(timer); clearTimeout(killTimer);
     signal?.removeEventListener("abort", abort);
     if (fd !== undefined) fs.closeSync(fd);
-    onEnd();
+    onEnd(outcome || { code: null, signal: null, reason: "process-observation-failed", startedAt, endedAt: Date.now() });
   }
 }

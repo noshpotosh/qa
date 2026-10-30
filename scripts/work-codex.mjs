@@ -58,7 +58,7 @@ export class CodexExecutor {
     // User MCP configuration is ignored. Reject project config rather than
     // letting it change permissions or enable an external mutation surface.
     if (fs.existsSync(path.join(context.workspace, ".codex/config.toml"))) throw Error("Project Codex configuration requires a vetted executor profile; no unrestricted fallback");
-    const result = await runProcess(argv, { ...this.processOptions(), cwd: context.workspace,
+    const result = await runProcess(argv, { ...this.processOptions(role), cwd: context.workspace,
       input: prompt, env: processEnvironment(), log: path.join(context.directory, `${role}-${nonce}.jsonl`) });
     if (result.status !== "passed" || !fs.existsSync(output)) throw Object.assign(Error(`Codex ${role} unavailable: ${result.output.slice(-2000)}`), { terminal: true, unavailable: true });
     return JSON.parse(fs.readFileSync(output, "utf8"));
@@ -90,7 +90,7 @@ export class CodexExecutor {
     const replacements = { "{workspace}": this.context.workspace, "{sourceRoot}": this.context.sourceRoot, "{baseline}": this.context.baseline,
       "{output}": path.join(this.context.workspace, ".qa-output") };
     const roots = (command.readRoots || []).map((root) => path.resolve(this.context.sourceRoot, replacements[root] || root));
-    const result = await sandboxCommand({ ...this.context, readRoots: [...(this.context.readRoots || []), ...roots] }, command.argv.map((arg) => replacements[arg] || arg), { ...this.processOptions(),
+    const result = await sandboxCommand({ ...this.context, readRoots: [...(this.context.readRoots || []), ...roots] }, command.argv.map((arg) => replacements[arg] || arg), { ...this.processOptions("check"),
       timeoutMs: Math.min(command.timeoutSeconds * 1000, this.processOptions().timeoutMs), network: command.network === true,
       ...(command.probe === true ? { writable: false } : {}) });
     if (result.code === 2) result.status = "unavailable";
