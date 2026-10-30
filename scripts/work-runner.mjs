@@ -25,7 +25,8 @@ function standards() {
 }
 function pendingPlanning(state, milestone) {
   return milestone.criteria.filter((c) => !c.done && c.kind === "automated" &&
-    !state.tasks.some((t) => t.criteria.includes(c.id) && state.states[t.id]?.status !== "done" &&
+    (!state.focus?.length || state.focus.includes(c.id)) &&
+    !state.tasks.some((t) => t.criteria.includes(c.id) && (!state.focus?.length || t.criteria.every((id) => state.focus.includes(id))) && state.states[t.id]?.status !== "done" &&
       (milestone.version !== 2 || taskCapabilities(t, milestone, state.config).every((id) => state.available.includes(id)))));
 }
 function assertActive(context) {
@@ -243,6 +244,11 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
     state.milestone = current.milestone;
     state.sourceContext = current.context || null;
     const milestone = effectiveMilestone(state, current);
+    if (state.focus?.length && milestone.criteria.filter((c) => state.focus.includes(c.id)).every((c) => c.done)) {
+      if (await validateFinal(executor, context, state, directory, milestone, inputIdentity)) { state.status = "focus-completed"; break; }
+      if (state.status === "unavailable") break;
+      continue;
+    }
     if (milestone.criteria.filter((c) => c.kind === "automated").every((c) => c.done)) {
       if (await validateFinal(executor, context, state, directory, milestone, inputIdentity)) {
         state.status = milestone.criteria.every((c) => c.done) ? "completed" : "awaiting-human"; break;
@@ -250,7 +256,8 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
       if (state.status === "unavailable") break;
       continue;
     }
-    const tasks = state.tasks.map((task) => ({ ...task, capabilities: taskCapabilities(task, milestone, config) }));
+    const tasks = state.tasks.filter((task) => !state.focus?.length || task.criteria.every((id) => state.focus.includes(id)))
+      .map((task) => ({ ...task, capabilities: taskCapabilities(task, milestone, config) }));
     let ready = selectReady(milestone, tasks, state.states, context.available);
     if (!ready.length) {
       if (milestone.version === 2 && state.lastBlockedProbeHead !== state.head) {
@@ -260,7 +267,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
         if (ready.length) continue;
       }
       if (await deriveTasks(executor, state, milestone)) { saveRun(directory, state, { type: "planned" }); continue; }
-      state.status = milestone.criteria.filter((c) => !c.done).every((c) => c.kind === "human") ? "awaiting-human" : "blocked";
+      state.status = milestone.criteria.filter((c) => !c.done && (!state.focus?.length || state.focus.includes(c.id))).every((c) => c.kind === "human") ? "awaiting-human" : "blocked";
       break;
     }
     const task = ready[0]; onProgress({ task: task.id, phase: "execute" });
@@ -275,7 +282,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
     }
   }
 }
-export async function runMilestone(root, config, id, { approve = false, resume = false, retryUnavailable = false,
+export async function runMilestone(root, config, id, { approve = false, resume = false, retryUnavailable = false, focus,
   executorFactory = (context, options) => new CodexExecutor(context, options), now = Date.now,
   signal, onProgress = () => {} } = {}) {
   if (!approve && !resume) throw Error("Use --approve after reviewing the milestone plan");
@@ -287,12 +294,18 @@ export async function runMilestone(root, config, id, { approve = false, resume =
   try {
     const snapshot = readMilestone(root, config, id);
     validateBindings(snapshot.milestone, config);
+    if (focus !== undefined && (config.version !== 2 || !Array.isArray(focus) || new Set(focus).size !== focus.length || focus.some((id) => !snapshot.milestone.criteria.some((c) => c.id === id)))) throw Error("Focus requires unique existing v2 criterion IDs");
     if (resume) ({ state, directory } = loadRun(root, id));
     else {
       if (!approve) throw Error("Use --approve after reviewing the milestone plan");
       ({ state, directory } = createRun(root, snapshot, config));
     }
     reconcileRun(state, snapshot, config);
+    if (focus !== undefined) {
+      if (state.validationCandidate && !state.tasks.find((t) => t.id === state.validationCandidate.taskId)?.criteria.every((id) => focus.includes(id)) && focus.length) throw Error("Finish the retained candidate before changing focus");
+      state.focus = focus;
+      saveRun(directory, state, { type: "focus-selected", criteria: focus });
+    }
     if (state.inputIdentity && resourceIdentity(resources) !== state.inputIdentity) throw Error("Declared input identities changed; pending acceptance was not replayed");
     if (state.operatorPending) finishAttestation(root, config, state, directory);
     if (state.pending) {

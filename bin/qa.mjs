@@ -37,6 +37,8 @@ try {
       operation: { type: "string" },
       migration: { type: "string" },
       "to-version": { type: "string" },
+      focus: { type: "string" },
+      "all-criteria": { type: "boolean" },
     },
   });
   const command = positionals[0],
