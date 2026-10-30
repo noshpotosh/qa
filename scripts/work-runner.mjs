@@ -124,6 +124,7 @@ async function inspectCandidate(executor, context, state, directory, task, input
     ...ids.flatMap((id) => state.config.checks[id].outputs || [])]);
   const evidence = { id: crypto.randomUUID(), task: task.id, source: fingerprint(candidate), inputIdentity,
     summary: result.summary, checks, operations: result.operations || [], artifacts, kind: "observed", baseHead: state.head,
+    ...(state.milestone.version === 2 ? { previousProgress: Object.values(state.receipts).map((r) => r.review.progress).filter(Boolean) } : {}),
     changedPaths: changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths) };
   evidence.artifacts = retainArtifacts(state.worktree, directory, evidence.id, artifacts);
   const outputs = new Set(ids.flatMap((id) => state.config.checks[id].outputs || []));
@@ -266,7 +267,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
     if (await performTask(executor, context, state, directory, task, inputIdentity)) {
       completed++;
       if (milestone.version === 2) await refreshCapabilities(executor, context, state, directory);
-      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = "Three tasks produced no source, artifact or acceptance progress"; break; }
+      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = milestone.version === 2 ? "Three tasks produced no independently reviewed advancement" : "Three tasks produced no source, artifact or acceptance progress"; break; }
     }
     else if (state.states[task.id]?.status === "blocked" && git(state.worktree, ["status", "--porcelain"]).trim()) {
       quarantine(context, state);
