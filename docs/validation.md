@@ -1,5 +1,41 @@
 # v0.2.0 validation record
 
+## THPS4 Milestone 4 live consumer — October 29, 2026
+
+- Wired the clean THPS4 `403ad99` baseline to a committed integration contract
+  (`121a8ca`) covering the original 40 Manuals & Lines criteria. The final
+  installed runtime is pinned to `1d372e6`; source edits occur on its isolated
+  milestone branch, with the source checkout remaining clean.
+- Four independently reviewed checkpoints now cover implementation acceptance,
+  reference-comparison planning, a current-disc script/parameter byte audit, and
+  a static presentation inventory. Tracker revision 115 (1/40) advanced to 120
+  (5/40), with backed-up revision-checked API writes and accepted seed replay.
+  Backups 115–119 were observed; unrelated milestone rows were unchanged.
+- Each accepted checkpoint's configured Tracker validation passed 68/68.
+  Editor-local offline trials retained two localhost-denial failures; those
+  checked-in failed logs are distinguished from controller-observed passing
+  checks. Actual source adapters checked ISO/ELF identity and member/range hashes.
+  Per-resource animation/sound verification remains incomplete; generated
+  inventory review was sampled. The [sanitized live receipt](../examples/validation/thps4-milestone4-pilot.json)
+  records checks, reviews, artifact hashes, attempts, checkpoints and limitations.
+- Real adoption exposed instruction discovery, PATH/toolchain, large-blob and
+  stale-planning-context defects, addressed in QA drafts
+  [14](https://github.com/noshpotosh/qa/pull/14),
+  [15](https://github.com/noshpotosh/qa/pull/15) and
+  [16](https://github.com/noshpotosh/qa/pull/16).
+  Final local suite: 82 passed, two Docker cases skipped; check and actionlint
+  passed. [Hosted QA validation](https://github.com/noshpotosh/qa/actions/runs/40956890103)
+  passed normal validation and both real Docker smoke cases. Controller recovery
+  completed validation of the retained third result without a fourth edit call.
+- The [consumer progress draft](https://github.com/noshpotosh/thps4/pull/3) is
+  published and unmerged. The runner stopped on 33 native-capability-dependent
+  automated criteria, with two human criteria also open. The earlier capture
+  harness path is absent; REA's advertised host tools do not provide a ready
+  PS2 guest-state capture adapter. No original session was advanced, no manual
+  gameplay implementation/fidelity was accepted, and no Unity, signing/device,
+  Backbone or five-minute thermal/cadence run was performed. No hosted consumer
+  checks were observed, and publication does not establish readiness.
+
 ## Local milestone runner — October 29, 2026
 
 - 74 automated cases: 72 passed, two Docker cases explicitly skipped locally.

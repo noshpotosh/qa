@@ -5,7 +5,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fixture } from "./fixtures/work-repo.mjs";
 import { runMilestone } from "../scripts/work-runner.mjs";
-import { loadRun } from "../scripts/work-store.mjs";
+import { loadRun, saveRun } from "../scripts/work-store.mjs";
 import { git } from "../lib/git.mjs";
 import { acceptCriterion } from "../scripts/work-operator.mjs";
 
@@ -125,6 +125,7 @@ test("unavailable required check capabilities block work without an attempt", as
   }) });
   assert.equal(result.status, "blocked");
   assert.deepEqual(result.unavailable, [{ id: "fix", missing: ["unity"] }]);
+  assert.deepEqual(result.unavailableCriteria.map((c) => c.missing), [["unity"]]);
   assert.equal(loadRun(f.root, "demo").state.states.fix, undefined);
 });
 test("validator source changes cannot become an accepted checkpoint", async (t) => {
@@ -250,4 +251,48 @@ test("a changed retained validation candidate is rejected without a new edit inv
   }) });
   assert.equal(result.status, "blocked");
   assert.equal(loadRun(f.root, "demo").state.checkpoints.length, 0);
+});
+test("planning rejections stay capped for an unchanged context across resumes", async (t) => {
+  const f = fixture(t);f.snapshot.milestone.tasks = [];savePlan(f);let plans = 0;
+  const executorFactory = (context) => ({ ...fake(context), plan: async () => { plans++;return { tasks: [] }; } });
+  for (const options of [{ approve: true }, { resume: true }, { resume: true }, { resume: true }]) {
+    assert.equal((await runMilestone(f.root, f.config, "demo", { ...options, executorFactory })).status, "blocked");
+  }
+  assert.equal(plans, 3);assert.equal(loadRun(f.root, "demo").state.planFailures, 3);
+});
+test("reviewed progress allows planning remaining work while retaining old failures and editor counts", async (t) => {
+  const f = fixture(t);f.config.tasks = 1;
+  f.snapshot.milestone.criteria.push({ id: "next", description: "Next behavior", kind: "automated", done: false, checks: ["test"], evidence: [] });
+  savePlan(f);
+  await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: fake });
+  const { state, directory } = loadRun(f.root, "demo");
+  state.planFailures = 3;state.planningReason = "Legacy bootstrap proposal failures";saveRun(directory, state);
+  let plans = 0;
+  const executorFactory = (context) => ({ ...fake(context),
+    plan: async () => { plans++;return { tasks: [{ ...f.snapshot.milestone.tasks[0], id: "next-task", criteria: ["next"], dependencies: ["fix"] }] }; },
+    reviewPlan: async () => ({ scope: "within-request", report: report() }),
+  });
+  await runMilestone(f.root, f.config, "demo", { resume: true, executorFactory });
+  assert.equal((await runMilestone(f.root, f.config, "demo", { resume: true, executorFactory })).status, "completed");
+  const final = loadRun(f.root, "demo").state;
+  assert.equal(plans, 1);assert.equal(final.states.fix.attempts, 1);
+  assert.equal(final.planningEpisodes[0].failures, 3);
+});
+test("changing validation logs cannot masquerade as project progress", async (t) => {
+  const f = fixture(t), template = structuredClone(f.snapshot.milestone.tasks[0]);
+  f.config.checks.test.outputs = [".qa-output/tests.json"];
+  f.snapshot.milestone.tasks = [];savePlan(f);let sequence = 0, checks = 0;
+  const result = await runMilestone(f.root, f.config, "demo", { approve: true, executorFactory: (context) => ({
+    ...fake(context), plan: async () => ({ tasks: [{ ...template, id: `step-${++sequence}` }] }),
+    reviewPlan: async () => ({ scope: "within-request", report: report() }),
+    execute: async () => ({ summary: "No substantive evidence", evidencePaths: [".qa-output/tests.json"] }),
+    check: async () => {
+      fs.mkdirSync(path.join(context.workspace, ".qa-output"), { recursive: true });
+      fs.writeFileSync(path.join(context.workspace, ".qa-output/tests.json"), JSON.stringify({ run: ++checks }));
+      return { status: "passed", code: 0 };
+    },
+    review: async () => ({ scope: "within-request", report: report(), resolvedSources: [] }),
+  }) });
+  assert.equal(result.status, "blocked");assert.equal(sequence, 3);
+  assert.equal(loadRun(f.root, "demo").state.noProgress, 3);
 });

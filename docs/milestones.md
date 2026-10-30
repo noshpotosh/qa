@@ -66,6 +66,13 @@ attempts persist, with at most three attempts per equivalent task. Resume does
 not reset failures by renaming tasks. Three tasks with no changed source,
 retained artifact or resolved criterion stop for no progress. The operator must
 explicitly start each resumed invocation; this is not a background daemon.
+Configured check outputs do not themselves count as project progress, even if
+their timestamps or timings change. New source, resolved criteria or new
+editor-declared project evidence are required. Invalid planning proposals are
+capped at three for the same planning context; reviewed progress or changed
+capabilities can refresh that context. Previous planning failures remain in the
+journal, and per-task editing attempts are never reset. Missing capabilities
+are reported for unassigned criteria as well as existing tasks.
 
 ## Checks and input resources
 
