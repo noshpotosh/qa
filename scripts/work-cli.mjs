@@ -10,12 +10,17 @@ import { acceptCriterion } from "./work-operator.mjs";
 import { publishMilestone } from "./work-publish.mjs";
 import { recoverValidation } from "./work-recovery.mjs";
 import { preflightMilestone } from "./work-preflight.mjs";
+import { recoverOperation } from "./work-operation-recovery.mjs";
 
 export async function workCli(positionals, values) {
   const root = inspectRepository(process.cwd()).root;
   const config = loadConfig(values.config || path.join(root, ".qa.json")).work;
   const [operation, id] = positionals;
   if (operation === "preflight") return preflightMilestone(root, config, id);
+  if (operation === "reconcile-operation") {
+    if (!values.operation) throw Error("reconcile-operation requires --operation RECEIPT_ID");
+    return recoverOperation(root, config, id, values.operation);
+  }
   if (operation === "recover-validation") {
     if (!values.task) throw Error("recover-validation requires --task ID");
     return recoverValidation(root, config, id, values.task);

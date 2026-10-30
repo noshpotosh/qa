@@ -34,6 +34,7 @@ try {
       task: { type: "string" },
       criterion: { type: "string" },
       evidence: { type: "string" },
+      operation: { type: "string" },
     },
   });
   const command = positionals[0],
