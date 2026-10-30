@@ -56,3 +56,11 @@ test('process result and exit callback retain the actual signal and timing', asy
   assert.equal(r.signal, 'SIGTERM'); assert.equal(r.code, null); assert.equal(r.status, 'unavailable');
   assert.equal(ended.signal, 'SIGTERM'); assert(r.endedAt >= r.startedAt);
 });
+test('startup commands participate in controller process ownership and exit recording', async () => {
+  const { CodexExecutor } = await import('../scripts/work-codex.mjs');
+  let starts = 0, ended, phase;
+  const executor = new CodexExecutor({ codex: process.execPath }, (role) => ({ timeoutMs: 10000,
+    onStart: () => { starts++; phase = role; }, onEnd: (result) => { ended = result; } }));
+  await assert.rejects(executor.doctor(), /required structured execution controls/);
+  assert.equal(starts, 1); assert.equal(phase, 'doctor'); assert.notEqual(ended.code, 0);
+});

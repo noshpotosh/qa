@@ -110,3 +110,10 @@ test('closed operation verifier prevents acquisition even when its task checks p
   assert.equal(r.status, 'blocked'); assert.equal(executions, 0);
   assert.equal(Object.keys(loadRun(f.root, 'demo').state.operationReceipts || {}).length, 0);
 });
+
+test('after three research tasks, executable verification can resolve the remaining prerequisite', async (t) => {
+  const f = setup(t, 4); f.snapshot.milestone.tasks[3].kind = 'verification'; save(f);
+  const r = await runMilestone(f.root, f.config, 'demo', { approve: true, executorFactory: factory });
+  assert.equal(r.status, 'completed'); assert.equal(r.completed.length, 5);
+  assert.equal(r.continuation.preparationStreak, 0);
+});
