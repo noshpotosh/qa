@@ -36,3 +36,20 @@ Acceptance requires all twelve expectations, including no false criterion credit
 and no blocking findings on clean work. A model or infrastructure failure fails
 the evaluation; it never becomes a passing mechanical test. This small fixture
 suite measures these specific distinctions, not general reviewer accuracy.
+
+## Outcome continuation trial
+
+The [October 30 continuation record](../examples/validation/outcome-continuation-evaluation.json)
+separates chat behavior from runner behavior. One local THPS4 prompt continued
+through three linked executable comparisons, prepared an inactive observer
+proposal, and completed reproducibility checks (five started tasks, 16.68 minutes
+including final evidence retention). The originating QA chat independently reproduced the three
+reports and reran all 15 offline proposal tests.
+
+This meets the selected multi-step **chat** continuation test. No runner was
+invoked, no protected controls were activated, and focused acceptance remained
+0/6. The next missing evidence requires a separately reviewed and approved
+observer in a newly admitted isolated session. Instruction guidance is not a
+promise that every future chat continues correctly; runner continuation and
+recovery are separately covered by integration tests. The earlier controller
+exit cause is still unknown.
