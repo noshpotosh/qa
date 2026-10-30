@@ -4,7 +4,7 @@ import os from "node:os";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { git } from "../lib/git.mjs";
-import { fingerprint, selectReady, validateProposal, validateBindings } from "../lib/work-plan.mjs";
+import { fingerprint, selectReady, validateProposal, validateBindings, taskChecks, taskCapabilities } from "../lib/work-plan.mjs";
 import { effectiveMilestone, startAttempt, failAttempt, handoff, preparePlanningContext } from "../lib/work-state.mjs";
 import { createRun, loadRun, saveRun, storePath, acquireLock, reconcileRun } from "./work-store.mjs";
 import { workspaceSnapshot, headSnapshot, indexSnapshot, changedFiles, captureArtifacts, retainArtifacts, resourceIdentity } from "./work-evidence.mjs";
@@ -16,6 +16,8 @@ import { diffContext } from "../lib/git.mjs";
 import { checkPolicy } from "../lib/policy.mjs";
 import { checkpointAdapterOutputs } from "./work-checkpoint.mjs";
 import { finishAttestation } from "./work-operator.mjs";
+import { refreshCapabilities } from "./work-probes.mjs";
+import { runOperations } from "./work-operations.mjs";
 
 function standards() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills");
@@ -23,7 +25,8 @@ function standards() {
 }
 function pendingPlanning(state, milestone) {
   return milestone.criteria.filter((c) => !c.done && c.kind === "automated" &&
-    !state.tasks.some((t) => t.criteria.includes(c.id) && state.states[t.id]?.status !== "done"));
+    !state.tasks.some((t) => t.criteria.includes(c.id) && state.states[t.id]?.status !== "done" &&
+      (milestone.version !== 2 || taskCapabilities(t, milestone, state.config).every((id) => state.available.includes(id)))));
 }
 function assertActive(context) {
   if (context.signal?.aborted) throw Error("Run interrupted; partial workspace retained");
@@ -40,7 +43,7 @@ async function checkSet(executor, config, ids, context) {
   return results;
 }
 async function deriveTasks(executor, state, milestone) {
-  const criteria = pendingPlanning(state, milestone).filter((c) => c.checks.every((id) =>
+  const criteria = pendingPlanning(state, milestone).filter((c) => milestone.version === 2 || c.checks.every((id) =>
     (state.config.checks[id]?.requires || []).every((capability) => (state.available || []).includes(capability))));
   if (!criteria.length) return false;
   preparePlanningContext(state, criteria);
@@ -79,7 +82,9 @@ function finishPending(state, directory) {
     state.revalidation = (state.revalidation || []).filter((criterionId) => criterionId !== id);
   }
   if (!state.checkpoints.some((c) => c.id === operation.id)) state.checkpoints.push({ id: operation.id, task: operation.taskId, commit: state.head });
-  state.noProgress = operation.changed.length || newEvidence || operation.receipt.review.resolvedSources.length ? 0 : (state.noProgress || 0) + 1;
+  const progressed = state.milestone.version === 2 ? operation.receipt.review.progress?.advanced || operation.receipt.review.resolvedSources.length
+    : operation.changed.length || newEvidence || operation.receipt.review.resolvedSources.length;
+  state.noProgress = progressed ? 0 : (state.noProgress || 0) + 1;
   state.pending = null;
   state.validationCandidate = null;
 }
@@ -109,16 +114,17 @@ async function inspectCandidate(executor, context, state, directory, task, input
   const candidate = workspaceSnapshot(state.worktree);
   assertInputs(context);
   changedFiles(before, candidate, state.milestone, context.protectedPaths);
-  const ids = [...task.checks, ...task.criteria.flatMap((id) => state.milestone.criteria.find((c) => c.id === id).checks)];
+  const ids = taskChecks(task, state.milestone);
   const checks = await checkSet(executor, state.config, ids, context);
   if (checks.some((c) => c.status !== "passed")) throw Object.assign(Error("Observed validation failed"), { feedback: checks, terminal: checks.some((c) => c.status === "unavailable"), unavailable: checks.some((c) => c.status === "unavailable") });
   if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Checks changed source; configure fresh ignored output paths");
   if (resourceIdentity(context.resources) !== inputIdentity) throw Error("Declared input resources changed during the task");
   assertInputs(context);
-  const artifacts = captureArtifacts(state.worktree, [...(result.evidencePaths || []),
+  const artifacts = captureArtifacts(state.worktree, [...(result.evidencePaths || []), ...(result.operations || []).flatMap((o) => o.artifacts.map((a) => a.path)),
     ...ids.flatMap((id) => state.config.checks[id].outputs || [])]);
   const evidence = { id: crypto.randomUUID(), task: task.id, source: fingerprint(candidate), inputIdentity,
-    summary: result.summary, checks, artifacts, kind: "observed", baseHead: state.head,
+    summary: result.summary, checks, operations: result.operations || [], artifacts, kind: "observed", baseHead: state.head,
+    ...(state.milestone.version === 2 ? { previousProgress: Object.values(state.receipts).map((r) => r.review.progress).filter(Boolean) } : {}),
     changedPaths: changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths) };
   evidence.artifacts = retainArtifacts(state.worktree, directory, evidence.id, artifacts);
   const outputs = new Set(ids.flatMap((id) => state.config.checks[id].outputs || []));
@@ -132,6 +138,13 @@ async function inspectCandidate(executor, context, state, directory, task, input
   const review = await executor.review(state.milestone, task, evidence);
   if (review.scope !== "within-request" || review.report.status !== "passed") throw Object.assign(Error("Independent review did not pass"), { feedback: review, terminal: review.scope !== "within-request" || ["unavailable", "skipped"].includes(review.report.status) });
   if (review.resolvedSources.some((id) => !task.criteria.includes(id) || state.milestone.criteria.find((c) => c.id === id)?.kind !== "automated")) throw Error("Reviewer claimed unrequested or human acceptance");
+  if (state.milestone.version === 2) {
+    if (task.purpose === "prepare" && review.resolvedSources.length) throw Error("Preparation cannot grant criterion acceptance");
+    const p = review.progress;
+    if (!p || typeof p.advanced !== "boolean" || typeof p.answer !== "string" || !Array.isArray(p.evidencePaths) ||
+        p.evidencePaths.some((name) => !artifacts.some((a) => a.path === name)) ||
+        (p.advanced && (!p.answer.trim() || !p.evidencePaths.length))) throw Error("Progress requires an independently reviewed answer and observed artifacts");
+  }
   if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Read-only review changed source");
   const changed = changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths);
   assertActive(context);
@@ -177,6 +190,11 @@ async function performTask(executor, context, state, directory, task, inputIdent
     const result = replay ? replay.result : await executor.execute(effectiveMilestone(state, { milestone: state.milestone }), task, { previous: state.states[task.id].feedback || null, source: state.sourceContext });
     state.validationCandidate = { taskId: task.id, attempt: state.states[task.id].attempts, head: state.head, result, snapshot: fingerprint(workspaceSnapshot(state.worktree)) };
     saveRun(directory, state, { type: replay ? "validation-resumed" : "editor-result-retained", task: task.id, attempt: state.states[task.id].attempts });
+    if (state.milestone.version === 2) {
+      changedFiles(before, workspaceSnapshot(state.worktree), state.milestone, context.protectedPaths);
+      result.operations = await runOperations(executor, context, state, directory, task);
+    }
+    saveRun(directory, state);
     const { evidence, candidate, changed } = await inspectCandidate(executor, context, state, directory, task, inputIdentity, before, result);
     commitCandidate(state, directory, task, evidence, candidate, changed);
     state.validationCandidate = null;
@@ -184,6 +202,12 @@ async function performTask(executor, context, state, directory, task, inputIdent
     return true;
   } catch (e) {
     if (state.pending) throw e; // Resume must reconcile a possibly published local commit first.
+    if (e.operationUncertain && state.validationCandidate) {
+      state.states[task.id].status = "blocked";
+      state.states[task.id].reason = e.message;
+      saveRun(directory, state, { type: "operation-uncertain", task: task.id, reason: e.message });
+      throw e;
+    }
     if (e.code === "ENOBUFS" && state.validationCandidate) {
       state.states[task.id].status = "ready";
       saveRun(directory, state, { type: "controller-validation-unavailable", task: task.id, reason: e.message });
@@ -211,7 +235,7 @@ function quarantine(context, state) {
   provisionInputs(context);
 }
 async function executeLoop(executor, context, state, directory, inputIdentity, onProgress) {
-  const { now, deadline, signal, available } = context, config = state.config, root = state.root, id = state.id;
+  const { now, deadline, signal } = context, config = state.config, root = state.root, id = state.id;
   let completed = 0;
   while (now() < deadline && completed < config.tasks && !signal?.aborted) {
     const current = readMilestone(root, config, id);
@@ -226,11 +250,15 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
       if (state.status === "unavailable") break;
       continue;
     }
-    const tasks = state.tasks.map((task) => ({ ...task, capabilities: [...new Set([...task.capabilities,
-      ...[...task.checks, ...task.criteria.flatMap((id) => milestone.criteria.find((c) => c.id === id).checks)]
-        .flatMap((id) => config.checks[id]?.requires || [])])] }));
-    const ready = selectReady(milestone, tasks, state.states, available);
+    const tasks = state.tasks.map((task) => ({ ...task, capabilities: taskCapabilities(task, milestone, config) }));
+    let ready = selectReady(milestone, tasks, state.states, context.available);
     if (!ready.length) {
+      if (milestone.version === 2 && state.lastBlockedProbeHead !== state.head) {
+        await refreshCapabilities(executor, context, state, directory);
+        state.lastBlockedProbeHead = state.head;
+        ready = selectReady(milestone, tasks, state.states, context.available);
+        if (ready.length) continue;
+      }
       if (await deriveTasks(executor, state, milestone)) { saveRun(directory, state, { type: "planned" }); continue; }
       state.status = milestone.criteria.filter((c) => !c.done).every((c) => c.kind === "human") ? "awaiting-human" : "blocked";
       break;
@@ -238,7 +266,8 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
     const task = ready[0]; onProgress({ task: task.id, phase: "execute" });
     if (await performTask(executor, context, state, directory, task, inputIdentity)) {
       completed++;
-      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = "Three tasks produced no source, artifact or acceptance progress"; break; }
+      if (milestone.version === 2) await refreshCapabilities(executor, context, state, directory);
+      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = milestone.version === 2 ? "Three tasks produced no independently reviewed advancement" : "Three tasks produced no source, artifact or acceptance progress"; break; }
     }
     else if (state.states[task.id]?.status === "blocked" && git(state.worktree, ["status", "--porcelain"]).trim()) {
       quarantine(context, state);
@@ -251,6 +280,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
   signal, onProgress = () => {} } = {}) {
   if (!approve && !resume) throw Error("Use --approve after reviewing the milestone plan");
   const deadline = now() + config.minutes * 60000;
+  const invocationStart = now();
   const resources = config.resources.map((resource) => ({ ...resource, source: path.resolve(root, resource.source) }));
   const release = acquireLock(storePath(root, id) + ".lock", { recover: resume });
   let state, directory;
@@ -275,6 +305,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     const context = { workspace: state.worktree, sourceRoot: state.root, baseline: state.baseline, directory, common: path.dirname(path.dirname(directory)),
       resources, codex: config.codex, model: config.model, checks: config.checks,
       capabilities: config.capabilities, standards: standards(), deadline, now, signal,
+      operations: config.operations || {},
       readRoots: config.readRoots.map((p) => path.resolve(root, p)), protectedPaths: authorityPaths(root, config) };
     context.policy = fs.existsSync(path.join(root, ".qa.json")) ? loadConfig(path.join(root, ".qa.json")) : resolveConfig();
     const instructions = git(state.worktree, ["ls-files", "-z", "--", "*AGENTS.md", "*AGENTS.override.md", "*CLAUDE.md"]).split("\0").filter(Boolean);
@@ -300,8 +331,8 @@ export async function runMilestone(root, config, id, { approve = false, resume =
         }
       }
     }
-    const available = [];
-    for (const [name, command] of Object.entries(config.capabilities)) {
+    const available = config.version === 2 ? await refreshCapabilities(executor, context, state, directory) : [];
+    if (config.version !== 2) for (const [name, command] of Object.entries(config.capabilities)) {
       if ((await executor.check(command)).status === "passed") available.push(name);
     }
     state.available = available;
@@ -313,7 +344,9 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     await executeLoop(executor, context, state, directory, inputIdentity, onProgress);
     if (state.status === "running") state.status = signal?.aborted ? "interrupted" : "budget-paused";
     saveRun(directory, state, { type: "handoff", status: state.status });
-    return handoff(state, effectiveMilestone(state, { milestone: state.milestone }), available);
+    state.elapsedMs = (state.elapsedMs || 0) + Math.max(0, now() - invocationStart);
+    if (config.version === 2) saveRun(directory, state, { type: resume ? "invocation-resumed" : "invocation-started", status: state.status });
+    return handoff(state, effectiveMilestone(state, { milestone: state.milestone }), context.available);
   } catch (e) {
     if (state) { state.status = "unavailable"; state.reason = e.message; saveRun(directory, state, { type: "unavailable", reason: e.message }); }
     throw e;
