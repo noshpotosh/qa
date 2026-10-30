@@ -1,4 +1,4 @@
-import { fingerprint } from '../lib/work-plan.mjs';
+import { fingerprint, taskCapabilities } from '../lib/work-plan.mjs';
 import { workspaceSnapshot } from './work-evidence.mjs';
 import { saveRun } from './work-store.mjs';
 
@@ -34,6 +34,15 @@ export async function refreshCapabilities(executor, context, state, directory) {
   const added = available.filter((id) => !previous.includes(id));
   state.probes = records; state.available = available; context.available = available;
   if (added.length && state.milestone.version === 2) state.noProgress = 0;
+  for (const task of state.tasks) {
+    const attempt = state.states[task.id];
+    const required = taskCapabilities(task, state.milestone, state.config);
+    if (attempt?.status === 'blocked' && attempt.unavailable && attempt.attempts < state.config.attempts &&
+        (state.failureKeys[attempt.key] || 0) < state.config.attempts && required.some((id) => added.includes(id)) && required.every((id) => available.includes(id))) {
+      attempt.status = 'ready';
+      saveRun(directory, state, { type: 'availability-recovered', task: task.id, attempts: attempt.attempts });
+    }
+  }
   saveRun(directory, state, { type: 'capabilities-probed', added, lost: previous.filter((id) => !available.includes(id)) });
   return available;
 }
