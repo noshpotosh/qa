@@ -40,7 +40,7 @@ test("derived tasks cannot rename known tasks, add criteria or request new check
 });
 test("scope checks protect controls even when allowedPaths is broad", () => {
   const m = { ...milestone(), allowedPaths: ["**"] };
-  for (const file of [".qa-work.json", ".github/workflows/a.yml", "src/AGENTS.md", "../outside"]) {
+  for (const file of [".qa-work.json", ".github/workflows/a.yml", "src/AGENTS.md", "src/AGENTS.override.md", "../outside"]) {
     try { assert.equal(allowedChange(file, m), false); } catch (error) { assert.match(error.message, /safe repository/); }
   }
   assert.equal(allowedChange("src/main.mjs", m), true);
