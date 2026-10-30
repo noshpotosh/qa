@@ -17,6 +17,7 @@ import { checkPolicy } from "../lib/policy.mjs";
 import { checkpointAdapterOutputs } from "./work-checkpoint.mjs";
 import { finishAttestation } from "./work-operator.mjs";
 import { refreshCapabilities } from "./work-probes.mjs";
+import { runOperations } from "./work-operations.mjs";
 
 function standards() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills");
@@ -119,10 +120,11 @@ async function inspectCandidate(executor, context, state, directory, task, input
   if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Checks changed source; configure fresh ignored output paths");
   if (resourceIdentity(context.resources) !== inputIdentity) throw Error("Declared input resources changed during the task");
   assertInputs(context);
-  const artifacts = captureArtifacts(state.worktree, [...(result.evidencePaths || []),
+  const artifacts = captureArtifacts(state.worktree, [...(result.evidencePaths || []), ...(result.operations || []).flatMap((o) => o.artifacts.map((a) => a.path)),
     ...ids.flatMap((id) => state.config.checks[id].outputs || [])]);
   const evidence = { id: crypto.randomUUID(), task: task.id, source: fingerprint(candidate), inputIdentity,
-    summary: result.summary, checks, artifacts, kind: "observed", baseHead: state.head,
+    summary: result.summary, checks, operations: result.operations || [], artifacts, kind: "observed", baseHead: state.head,
+    ...(state.milestone.version === 2 ? { previousProgress: Object.values(state.receipts).map((r) => r.review.progress).filter(Boolean) } : {}),
     changedPaths: changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths) };
   evidence.artifacts = retainArtifacts(state.worktree, directory, evidence.id, artifacts);
   const outputs = new Set(ids.flatMap((id) => state.config.checks[id].outputs || []));
@@ -188,6 +190,11 @@ async function performTask(executor, context, state, directory, task, inputIdent
     const result = replay ? replay.result : await executor.execute(effectiveMilestone(state, { milestone: state.milestone }), task, { previous: state.states[task.id].feedback || null, source: state.sourceContext });
     state.validationCandidate = { taskId: task.id, attempt: state.states[task.id].attempts, head: state.head, result, snapshot: fingerprint(workspaceSnapshot(state.worktree)) };
     saveRun(directory, state, { type: replay ? "validation-resumed" : "editor-result-retained", task: task.id, attempt: state.states[task.id].attempts });
+    if (state.milestone.version === 2) {
+      changedFiles(before, workspaceSnapshot(state.worktree), state.milestone, context.protectedPaths);
+      result.operations = await runOperations(executor, context, state, directory, task);
+    }
+    saveRun(directory, state);
     const { evidence, candidate, changed } = await inspectCandidate(executor, context, state, directory, task, inputIdentity, before, result);
     commitCandidate(state, directory, task, evidence, candidate, changed);
     state.validationCandidate = null;
@@ -195,6 +202,12 @@ async function performTask(executor, context, state, directory, task, inputIdent
     return true;
   } catch (e) {
     if (state.pending) throw e; // Resume must reconcile a possibly published local commit first.
+    if (e.operationUncertain && state.validationCandidate) {
+      state.states[task.id].status = "blocked";
+      state.states[task.id].reason = e.message;
+      saveRun(directory, state, { type: "operation-uncertain", task: task.id, reason: e.message });
+      throw e;
+    }
     if (e.code === "ENOBUFS" && state.validationCandidate) {
       state.states[task.id].status = "ready";
       saveRun(directory, state, { type: "controller-validation-unavailable", task: task.id, reason: e.message });
@@ -254,7 +267,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
     if (await performTask(executor, context, state, directory, task, inputIdentity)) {
       completed++;
       if (milestone.version === 2) await refreshCapabilities(executor, context, state, directory);
-      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = "Three tasks produced no source, artifact or acceptance progress"; break; }
+      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = milestone.version === 2 ? "Three tasks produced no independently reviewed advancement" : "Three tasks produced no source, artifact or acceptance progress"; break; }
     }
     else if (state.states[task.id]?.status === "blocked" && git(state.worktree, ["status", "--porcelain"]).trim()) {
       quarantine(context, state);

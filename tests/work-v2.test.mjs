@@ -89,3 +89,29 @@ test('reviewed preparation unlocks capability and acceptance without another inv
   assert.equal(result.status, 'completed'); assert.deepEqual(result.completed, ['prepare', 'fix']);
   assert(result.progress.capabilityChanges.some((e) => e.added.includes('native')));
 });
+
+test('uncertain acquisition retains the editor candidate and resumes after verifier-only recovery', async (t) => {
+  const { recoverOperation } = await import('../scripts/work-operation-recovery.mjs');
+  const f = v2Fixture(t), m = f.snapshot.milestone;
+  m.tasks[0].operations = ['capture']; saveV2(f);
+  f.config.operations.capture = { argv: ['capture'], timeoutSeconds: 10, inputs: ['src/app.mjs'], outputs: ['.qa-output/raw.json'], verifier: 'verify', reuse: 'inputs' };
+  f.config.checks.verify = { argv: ['verify'], timeoutSeconds: 10 };
+  let captures = 0, edits = 0, verifying = false;
+  const factory = (context) => {
+    const base = executor(context);
+    return { ...base,
+      execute: async (...args) => { edits++; return base.execute(...args); },
+      check: async (command) => {
+        if (command.argv[0] === 'capture') { captures++; fs.mkdirSync(path.join(context.workspace, '.qa-output'), { recursive: true }); fs.writeFileSync(path.join(context.workspace, '.qa-output/raw.json'), '{"raw":42}'); }
+        return command.argv[0] === 'verify' && !verifying ? { status: 'unavailable', code: 2, output: 'Verifier temporarily unavailable' } : passed;
+      } };
+  };
+  await assert.rejects(runMilestone(f.root, f.config, 'demo', { approve: true, executorFactory: factory }), /verifier/);
+  let state = loadRun(f.root, 'demo').state;
+  assert(state.validationCandidate); assert.equal(state.states.fix.attempts, 1);
+  const receipt = Object.values(state.operationReceipts)[0]; verifying = true;
+  await recoverOperation(f.root, f.config, 'demo', receipt.receiptId, factory);
+  const result = await runMilestone(f.root, f.config, 'demo', { resume: true, executorFactory: factory });
+  assert.equal(result.status, 'completed'); assert.equal(captures, 1); assert.equal(edits, 1);
+  state = loadRun(f.root, 'demo').state; assert.equal(state.states.fix.attempts, 1);
+});
