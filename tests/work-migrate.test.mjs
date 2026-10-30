@@ -77,3 +77,13 @@ test('interrupted migration commit is reconciled without duplicate commits or lo
   assert.equal(git(f.state.worktree, ['rev-parse', 'HEAD']).trim(), committed);
   assert.equal(loadRun(f.root, 'demo').state.states.fix.attempts, 2);
 });
+
+test('migration does not manufacture capability progress or reset no-progress budget', (t) => {
+  const f = migrationFixture(t);
+  const current = loadRun(f.root, 'demo');
+  current.state.noProgress = 3; current.state.available = ['native']; saveRun(current.directory, current.state);
+  f.config.capabilities.native = { argv: ['native'], timeoutSeconds: 10, probe: true };
+  migrateMilestone(f.root, f.config, 'demo', { mapping: f.mapping, apply: true, approve: true });
+  const { state } = loadRun(f.root, 'demo');
+  assert.equal(state.noProgress, 3); assert.deepEqual(state.available, ['native']);
+});

@@ -54,7 +54,7 @@ function buildMigration(root, config, id, mapping) {
     next.failureKeys[key] = Math.max(next.failureKeys[key] || 0, next.failureKeys[attempt.key] || 0);
     attempt.key = key;
   }
-  next.available = []; next.probes = {}; next.finalChecks = null;
+  next.available = (state.available || []).filter((id) => Object.hasOwn(config.capabilities, id)); next.probes = {}; next.finalChecks = null;
   return { state, next, directory, entries, sourceHead, sourceSnapshot: fingerprint(workspaceSnapshot(root)), workFiles: workspaceSnapshot(state.worktree), workSnapshot: fingerprint(workspaceSnapshot(state.worktree)) };
 }
 export function migrateMilestone(root, config, id, { mapping, apply = false, approve = false } = {}) {
