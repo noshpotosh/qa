@@ -1,3 +1,4 @@
+import { beginInvocation, endInvocation } from './work-lifecycle.mjs';
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -178,13 +179,17 @@ async function performTask(executor, context, state, directory, task, inputIdent
     if (replay) {
       if (replay.attempt !== state.states[task.id].attempts || replay.head !== state.head || replay.snapshot !== fingerprint(workspaceSnapshot(state.worktree))) throw Error("Retained validation candidate changed");
       state.states[task.id].status = "running";
-    } else startAttempt(state, task);
+    } else {
+      startAttempt(state, task);
+      if (state.invocation) state.invocation.attemptsStarted++;
+    }
     const previousOutput = path.join(state.worktree, ".qa-output");
     if (fs.existsSync(previousOutput)) {
       const archive = path.join(directory, "attempt-outputs", `${task.id}-${state.states[task.id].attempts}-${crypto.randomUUID()}`);
       fs.mkdirSync(path.dirname(archive), { recursive: true });
       fs.cpSync(previousOutput, archive, { recursive: true, dereference: false });
     }
+    if (state.invocation) state.invocation.phase = `${replay ? "validation" : "execute"}:${task.id}`;
     saveRun(directory, state, { type: replay ? "validation-continuation" : "attempt", task: task.id, attempt: state.states[task.id].attempts });
     const before = workspaceSnapshot(state.worktree);
     assertActive(context);
@@ -290,7 +295,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
   const invocationStart = now();
   const resources = config.resources.map((resource) => ({ ...resource, source: path.resolve(root, resource.source) }));
   const release = acquireLock(storePath(root, id) + ".lock", { recover: resume });
-  let state, directory;
+  let state, directory, invocationId;
   try {
     const snapshot = readMilestone(root, config, id);
     validateBindings(snapshot.milestone, config);
@@ -301,6 +306,10 @@ export async function runMilestone(root, config, id, { approve = false, resume =
       ({ state, directory } = createRun(root, snapshot, config));
     }
     reconcileRun(state, snapshot, config);
+    if (config.version === 2) {
+      beginInvocation(state, invocationStart, deadline); state.status = "running"; invocationId = state.invocation.id;
+      saveRun(directory, state, { type: 'invocation-began', invocation: invocationId });
+    }
     if (focus !== undefined) {
       if (state.validationCandidate && !state.tasks.find((t) => t.id === state.validationCandidate.taskId)?.criteria.every((id) => focus.includes(id)) && focus.length) throw Error("Finish the retained candidate before changing focus");
       state.focus = focus;
@@ -329,9 +338,9 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     const inputIdentity = resourceIdentity(resources);
     if (state.inputIdentity && state.inputIdentity !== inputIdentity) throw Error("Declared input identities changed; previous receipts cannot be silently reused");
     state.inputIdentity = inputIdentity;
-    const processOptions = () => ({ timeoutMs: Math.min(1800000, Math.max(1, deadline - now())), signal,
-      onStart: (pid) => { state.processes = [{ pid }]; saveRun(directory, state); },
-      onEnd: () => { state.processes = []; saveRun(directory, state); } });
+    const processOptions = (phase) => ({ timeoutMs: Math.min(1800000, Math.max(1, deadline - now())), signal,
+      onStart: (pid) => { if (state.invocation && phase) state.invocation.phase = phase; state.processes = [{ pid }]; saveRun(directory, state, { type: 'process-started', pid, invocation: invocationId, phase: state.invocation?.phase }); },
+      onEnd: (result) => { state.processes = []; const { output, ...exit } = result || {}; saveRun(directory, state, { type: 'process-ended', invocation: invocationId, phase: state.invocation?.phase, ...exit }); } });
     const executor = executorFactory(context, processOptions);
     await executor.doctor();
     if (resume && retryUnavailable) {
@@ -351,17 +360,28 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     state.available = available;
     context.available = available;
     if (config.requiredCapabilities.some((name) => !available.includes(name))) throw Error(`Required capabilities unavailable: ${config.requiredCapabilities.filter((name) => !available.includes(name)).join(", ")}`);
-    if (state.noProgress >= 3) return handoff(state, effectiveMilestone(state, snapshot), available);
+    if (state.noProgress >= 3) { state.status = "blocked"; state.reason = "No-progress budget exhausted; existing evidence and attempts preserved"; if (invocationId) endInvocation(state, now()); return handoff(state, effectiveMilestone(state, snapshot), available); }
     state.status = "running";
     state.reason = null;
     await executeLoop(executor, context, state, directory, inputIdentity, onProgress);
-    if (state.status === "running") state.status = signal?.aborted ? "interrupted" : "budget-paused";
+    if (state.status === "running") {
+      state.status = signal?.aborted ? "interrupted" : "budget-paused";
+      state.reason = signal?.aborted ? 'User interruption' : now() >= deadline ? 'Invocation time budget exhausted' : 'Invocation task budget exhausted';
+    }
+    if (invocationId) endInvocation(state, now());
     saveRun(directory, state, { type: "handoff", status: state.status });
-    state.elapsedMs = (state.elapsedMs || 0) + Math.max(0, now() - invocationStart);
+    if (config.version !== 2) state.elapsedMs = (state.elapsedMs || 0) + Math.max(0, now() - invocationStart);
     if (config.version === 2) saveRun(directory, state, { type: resume ? "invocation-resumed" : "invocation-started", status: state.status });
     return handoff(state, effectiveMilestone(state, { milestone: state.milestone }), context.available);
   } catch (e) {
-    if (state) { state.status = "unavailable"; state.reason = e.message; saveRun(directory, state, { type: "unavailable", reason: e.message }); }
+    if (state) { state.status = signal?.aborted ? "interrupted" : now() >= deadline ? "budget-paused" : "unavailable"; state.reason = e.message; saveRun(directory, state, { type: "unavailable", reason: e.message }); }
     throw e;
-  } finally { release(); }
+  } finally {
+    try {
+      if (invocationId && state.invocation?.id === invocationId) {
+        endInvocation(state, now());
+        saveRun(directory, state, { type: 'invocation-ended', invocation: invocationId, status: state.status });
+      }
+    } finally { release(); }
+  }
 }

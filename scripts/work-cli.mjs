@@ -1,3 +1,4 @@
+import { recoverRun, readLifecycle } from './work-lifecycle.mjs';
 import path from "node:path";
 import fs from "node:fs";
 import { loadConfig } from "../lib/config.mjs";
@@ -18,6 +19,7 @@ export async function workCli(positionals, values) {
   const root = inspectRepository(process.cwd()).root;
   const config = loadConfig(values.config || path.join(root, ".qa.json")).work;
   const [operation, id] = positionals;
+  if (operation === "recover-run") return recoverRun(root, config, id, { apply: !!values.apply });
   if (operation === "migrate") {
     if (values["to-version"] !== "2" || !values.migration) throw Error("migrate requires --to-version 2 --migration MAPPING.json");
     return migrateMilestone(root, config, id, { mapping: JSON.parse(fs.readFileSync(values.migration, "utf8")), apply: !!values.apply, approve: !!values.approve });
@@ -55,7 +57,7 @@ export async function workCli(positionals, values) {
   if (operation === "status") {
     const { state } = loadRun(root, id);
     const snapshot = readMilestone(root, config, id);
-    return handoff(state, effectiveMilestone(state, snapshot), state.available || []);
+    return { ...handoff(state, effectiveMilestone(state, snapshot), state.available || []), ...readLifecycle(root, state), invocation: state.invocation || null };
   }
   if (operation !== "plan") throw Error("Available milestone commands: plan ID | status ID");
   const snapshot = readMilestone(root, config, id);
