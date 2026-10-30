@@ -13,6 +13,12 @@ export function invokeAdapter(root, config, request) {
   });
   return JSON.parse(output);
 }
+export function authorityPaths(root, config) {
+  return [config.plan, ...config.protectedPaths, ...config.adapterOutputs,
+    ...[config.adapter, ...Object.values(config.checks), ...Object.values(config.capabilities), ...Object.values(config.operations || {})].filter(Boolean)
+      .flatMap((command) => command.argv).filter((arg) => !path.isAbsolute(arg) && !arg.startsWith("-") &&
+        fs.existsSync(path.resolve(root, arg)) && fs.statSync(path.resolve(root, arg)).isFile())];
+}
 export function readMilestone(root, config, id) {
   identifier(id);
   if (config.adapter) {
@@ -29,4 +35,16 @@ export function readMilestone(root, config, id) {
 export function previewMilestone(root, config, id) {
   const snapshot = readMilestone(root, config, id);
   return { ...snapshot, root: path.resolve(root) };
+}
+export function recordAcceptance(root, config, state, operation) {
+  if (!config.adapter) return []; // File-backed acceptance lives in the durable journal.
+  const result = invokeAdapter(root, config, { operation: "record", milestoneId: state.id,
+    operationId: operation.id, expectedRevision: state.sourceRevision,
+    task: state.tasks.find((t) => t.id === operation.taskId), receipt: operation.receipt,
+    sourceHead: state.head, workspace: state.worktree });
+  if (result.version !== 1 || typeof result.revision !== "string") throw Error("Invalid adapter record result");
+  const files = result.checkpointFiles || [];
+  if (!Array.isArray(files) || files.some((file) => !config.adapterOutputs.includes(file))) throw Error("Adapter requested unapproved output files");
+  state.sourceRevision = result.revision;
+  return files;
 }

@@ -20,3 +20,19 @@ Use these cases with the coordinator and relevant skills. Run each against the s
 Live acceptance: one Codex PR review, a second run updating the same comment, one manual audit updating the same issue, and a Claude smoke review. These require owner-provided credentials and are not satisfied by mocked publishing tests.
 
 Concrete self-contained input cases are in `tests/fixtures/review-cases.json`. Supply the selected case's request and raw artifacts to a reviewer without its expected-result field; use that field only when evaluating the completed report. These fixtures are not a claim that a paid provider has been evaluated.
+
+## V2 milestone review evaluation
+
+Run `QA_LIVE_REVIEW=1 QA_REVIEW_MODEL=MODEL node tests/live-review-v2.mjs`
+with an explicitly selected model and authenticated local Codex CLI. This is an
+account-backed evaluation, not part of `npm test`. It makes twelve independent
+read-only reviews: three repetitions each of hash integrity without semantics,
+documentation churn, a completed prerequisite without criterion acceptance, and
+a clean behavior change. Expected answers are withheld from the reviewer.
+
+The command retains fixture identity, source revision, model, complete reports,
+unavailable errors and observed outcomes in the printed temporary directory.
+Acceptance requires all twelve expectations, including no false criterion credit
+and no blocking findings on clean work. A model or infrastructure failure fails
+the evaluation; it never becomes a passing mechanical test. This small fixture
+suite measures these specific distinctions, not general reviewer accuracy.
