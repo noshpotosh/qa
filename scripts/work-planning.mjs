@@ -9,7 +9,8 @@ function pendingPlanning(state, milestone) {
       (milestone.version !== 2 || taskCapabilities(t, milestone, state.config).every((id) => state.available.includes(id)))));
 }
 export function readyTasks(state, milestone, tasks, available) {
-  const ready = selectReady(milestone, tasks, state.states, available);
+  const eligible = outcomeMode(state.config) ? tasks.filter((t) => continuationEligible(state, t) && !blockedChecks(state, t, milestone, taskChecks).length) : tasks;
+  const ready = selectReady(milestone, eligible, state.states, available);
   return outcomeMode(state.config) ? ready.sort((a, b) => Number(a.purpose === 'prepare') - Number(b.purpose === 'prepare')) : ready;
 }
 

@@ -1,5 +1,5 @@
 import { readyTasks, deriveTasks } from './work-planning.mjs';
-import { outcomeMode, blockedChecks, continuationEligible, validatePrerequisiteReview, recordContinuation } from '../lib/work-continuation.mjs';
+import { outcomeMode, blockedChecks, validatePrerequisiteReview, recordContinuation } from '../lib/work-continuation.mjs';
 import { beginInvocation, endInvocation } from './work-lifecycle.mjs';
 import { relativePath } from '../lib/work-values.mjs';
 import fs from "node:fs";
@@ -254,8 +254,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
       if (state.status === "unavailable") break;
       continue;
     }
-    const tasks = state.tasks.filter((task) => (!state.focus?.length || task.criteria.every((id) => state.focus.includes(id))) &&
-      (!outcomeMode(config) || continuationEligible(state, task) && !blockedChecks(state, task, milestone, taskChecks).length))
+    const tasks = state.tasks.filter((task) => !state.focus?.length || task.criteria.every((id) => state.focus.includes(id)))
       .map((task) => ({ ...task, capabilities: taskCapabilities(task, milestone, config) }));
     let ready = readyTasks(state, milestone, tasks, context.available);
     if (!ready.length) {
