@@ -84,6 +84,7 @@ export function createRun(root, snapshot, config) {
 }
 export function reconcileRun(state, snapshot, config) {
   if (state.approval !== approvalIdentity(snapshot.milestone, config)) throw Error("Milestone scope or execution authority changed; renewed approval required");
+  if (config.adapter && snapshot.milestone.criteria.some((criterion) => state.accepted[criterion.id] && !criterion.done)) throw Error("Tracker acceptance was revoked or not recorded; reconcile the conflicting evidence before resuming");
   if (git(state.root, ["rev-parse", "HEAD"]).trim() !== state.baseline || git(state.root, ["status", "--porcelain", "-uall"]).trim()) throw Error("Original baseline changed; existing work was preserved");
   if (state.processes.some((process) => alive(process.pid))) throw Error("A recorded owned process is still running; no task was repeated");
   const head = git(state.worktree, ["rev-parse", "HEAD"]).trim();

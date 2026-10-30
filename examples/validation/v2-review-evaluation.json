@@ -1,0 +1,343 @@
+{
+  "version": 2,
+  "model": "gpt-6-astra",
+  "sourceHead": "8d696c297869158d3cacbe0aabee7acfd5e80f47",
+  "fixtureHash": "98fffa788059ddf1a68634d3a342725d9d06e6f335cdcb919a2e8aa1807fa851",
+  "date": "2026-10-30T02:06:52.468Z",
+  "runs": [
+    {
+      "id": "hashes-not-semantics",
+      "repeat": 1,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "failed",
+          "summary": "1 blocking issue: matching hashes and repeat captures do not prove the consumed manual input window.",
+          "coverage": [
+            "Reviewed the supplied patch and observed fixture check; no project commands executed.",
+            "Capture integrity is verified, but consumed inputs and accepted/rejected boundaries remain unmeasured."
+          ],
+          "findings": [
+            {
+              "ruleId": "EVID-02",
+              "skill": "evidence-quality",
+              "severity": "blocking",
+              "location": "evidence.summary",
+              "evidence": "The summary claims the consumed input window is verified, but the passing fixture explicitly reports consumedInputs=\"unmeasured\" and recognizerWindow=\"unknown\". Requested inputs and three identical repeats do not establish what the original recognizer consumed.",
+              "fix": "Mark the window as unverified. Record the original recognizer's consumed inputs and outcomes for accepted and rejected boundary cases before claiming verification."
+            }
+          ]
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": false,
+          "answer": "",
+          "evidencePaths": []
+        }
+      }
+    },
+    {
+      "id": "hashes-not-semantics",
+      "repeat": 2,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "failed",
+          "summary": "1 blocking issue: matching hashes and repeated captures do not prove the consumed manual input window.",
+          "coverage": [
+            "Reviewed the supplied patch and controller-observed fixture result.",
+            "The fixture passed hash verification, but explicitly reports consumed inputs as unmeasured and the recognizer window as unknown.",
+            "No project commands were run; accepted and rejected boundary behavior remains unverified."
+          ],
+          "findings": [
+            {
+              "ruleId": "EVID-02",
+              "skill": "evidence-quality",
+              "severity": "blocking",
+              "location": "evidence.summary",
+              "evidence": "The summary claims the consumed input window is verified, while the observed result states \"consumedInputs\":\"unmeasured\" and \"recognizerWindow\":\"unknown\". Requested inputs and three identical repeats establish neither actual consumption nor acceptance boundaries.",
+              "fix": "Withdraw the verified claim and record observations from the original recognizer showing consumed inputs and accepted and rejected boundary cases."
+            }
+          ]
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": false,
+          "answer": "",
+          "evidencePaths": []
+        }
+      }
+    },
+    {
+      "id": "hashes-not-semantics",
+      "repeat": 3,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "failed",
+          "summary": "1 blocking issue: matching hashes do not prove the recognizer's consumed input window.",
+          "coverage": [
+            "Reviewed the supplied patch and observed fixture check.",
+            "No project commands executed or files modified.",
+            "Accepted and rejected boundary behavior remains unverified."
+          ],
+          "findings": [
+            {
+              "ruleId": "EVID-02",
+              "skill": "evidence-quality",
+              "severity": "blocking",
+              "location": "evidence.summary",
+              "evidence": "The summary claims the consumed input window is verified, but the passing check explicitly reports consumedInputs=\"unmeasured\" and recognizerWindow=\"unknown\". Matching hashes and three identical repeats establish repeatability, not which requested inputs the recognizer consumed.",
+              "fix": "Withdraw the verification claim and capture observed consumption by the original recognizer, including accepted and rejected inputs at the window boundaries."
+            }
+          ]
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": false,
+          "answer": "",
+          "evidencePaths": []
+        }
+      }
+    },
+    {
+      "id": "documentation-churn",
+      "repeat": 1,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. The preparation task only rephrases the existing unknown conclusion; it does not advance the input-window question.",
+          "coverage": [
+            "Reviewed controller-provided patch, changedPaths, artifact metadata, observed check record and previous progress.",
+            "The fixture check passed, but supplies no original-game input events or new measurements.",
+            "No project commands executed, files edited or content published."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": false,
+          "answer": "",
+          "evidencePaths": []
+        }
+      }
+    },
+    {
+      "id": "documentation-churn",
+      "repeat": 2,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. The change only rephrases the existing unknown conclusion; it does not resolve the consumed input window.",
+          "coverage": [
+            "Reviewed the supplied patch, changedPaths and observed fixture check.",
+            "The fixture check passed, but records no new observation or measurement. The artifact hash does not prove input-window semantics.",
+            "No project commands were run, files edited or content published."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": false,
+          "answer": "",
+          "evidencePaths": []
+        }
+      }
+    },
+    {
+      "id": "documentation-churn",
+      "repeat": 3,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. The fixture accurately reports documentation-only changes; the input window remains unknown.",
+          "coverage": [
+            "Reviewed the supplied patch, changedPaths and observed fixture check.",
+            "The passed check reports no new observation or measurement; the artifact hash does not establish input-window semantics.",
+            "No project commands executed, files edited or content published."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": false,
+          "answer": "",
+          "evidencePaths": []
+        }
+      }
+    },
+    {
+      "id": "prerequisite-only",
+      "repeat": 1,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. Controller-observed evidence establishes checkpoint restoration and repeated acquisition for this preparation task; consumed-input timing and implementation remain unresolved.",
+          "coverage": [
+            "Reviewed the supplied patch, changedPaths and controller-observed fixture result.",
+            "Observed three checkpoint restores and three capture runs with identical raw observations in the isolated fixture session.",
+            "No project commands executed, files edited or content published. No product-wide or human acceptance assessment performed."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": true,
+          "answer": "Yes. The controller-observed result records three checkpoint restores and three capture runs with identical raw observations, establishing acquisition availability in the owned isolated session. It does not establish consumed-input semantics or matching manual entry.",
+          "evidencePaths": [
+            "prerequisite-only.json"
+          ]
+        }
+      }
+    },
+    {
+      "id": "prerequisite-only",
+      "repeat": 2,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. Controller-observed results establish acquisition availability for this preparation task; consumed-input semantics remain unresolved and implementation has not started.",
+          "coverage": [
+            "Reviewed the supplied patch, changedPaths and controller-observed fixture check.",
+            "Observed three checkpoint restores and three capture runs with identical raw observations in the isolated owned session.",
+            "No project commands executed, files edited or content published. Product-wide criteria and human acceptance were not assessed."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": true,
+          "answer": "Yes. The controller-observed passing fixture record demonstrates three checkpoint restores and three capture runs producing identical raw observations. This advances the acquisition question only.",
+          "evidencePaths": [
+            "prerequisite-only.json"
+          ]
+        }
+      }
+    },
+    {
+      "id": "prerequisite-only",
+      "repeat": 3,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. Controller-observed results support checkpoint restoration and repeated raw observation acquisition in the isolated fixture.",
+          "coverage": [
+            "Reviewed the supplied patch, changedPaths, artifact record and controller-observed fixture check.",
+            "Observed three checkpoint restores and three capture runs with identical raw observations.",
+            "Consumed input semantics remain unresolved; implementation has not started. Neither is required by this preparation task.",
+            "No project commands executed, files edited or content published."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [],
+        "scope": "within-request",
+        "progress": {
+          "advanced": true,
+          "answer": "Yes. The controller-observed fixture check records three checkpoint restores and three capture runs in the owned isolated session, with identical raw observations. This establishes acquisition availability only.",
+          "evidencePaths": [
+            "prerequisite-only.json"
+          ]
+        }
+      }
+    },
+    {
+      "id": "clean-acceptance",
+      "repeat": 1,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. The supplied production-export checks confirm 450 \u2192 90, -90 \u2192 270, 0 \u2192 0, and 360 \u2192 0.",
+          "coverage": [
+            "Reviewed the controller-provided source and observed check records for finite-input normalization.",
+            "The modulo expression returns an angle in [0,360) for finite inputs.",
+            "No project commands executed, files edited, or publishing performed. Review limited to the supplied fixture."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [
+          "criterion"
+        ],
+        "scope": "within-request",
+        "progress": {
+          "advanced": true,
+          "answer": "Yes. Observed calls to the changed production export returned 90 for 450, 270 for -90, and 0 for zero; 360 also returned 0.",
+          "evidencePaths": [
+            "clean-acceptance.json"
+          ]
+        }
+      }
+    },
+    {
+      "id": "clean-acceptance",
+      "repeat": 2,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. The normalization formula and controller-observed production results support the finite-input criterion.",
+          "coverage": [
+            "Inspected the supplied production export: ((x % 360) + 360) % 360.",
+            "Controller observed 450 \u2192 90, -90 \u2192 270, 0 \u2192 0, and 360 \u2192 0; fixture exited with code 0.",
+            "Review limited to the supplied fixture. No commands were run or files changed."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [
+          "criterion"
+        ],
+        "scope": "within-request",
+        "progress": {
+          "advanced": true,
+          "answer": "Yes. Controller-observed calls to the changed production export confirm that 450 maps to 90 while -90 maps to 270 and zero remains zero.",
+          "evidencePaths": [
+            "clean-acceptance.json"
+          ]
+        }
+      }
+    },
+    {
+      "id": "clean-acceptance",
+      "repeat": 3,
+      "passed": true,
+      "review": {
+        "report": {
+          "status": "passed",
+          "summary": "No blocking issues. The supplied normalization implementation and controller-observed results satisfy the scoped criterion.",
+          "coverage": [
+            "Reviewed the authoritative patch: double modulo produces an angle in [0,360) for finite inputs.",
+            "Controller observed production-export results: 450 \u2192 90, -90 \u2192 270, 0 \u2192 0, and 360 \u2192 0; exit code 0.",
+            "No commands executed, files edited, or Git metadata accessed. Review is limited to this fixture."
+          ],
+          "findings": []
+        },
+        "resolvedSources": [
+          "criterion"
+        ],
+        "scope": "within-request",
+        "progress": {
+          "advanced": true,
+          "answer": "Yes. Controller-observed calls to the changed production export confirm 450 \u2192 90 while preserving -90 \u2192 270 and 0 \u2192 0.",
+          "evidencePaths": [
+            "clean-acceptance.json"
+          ]
+        }
+      }
+    }
+  ],
+  "passed": true
+}
