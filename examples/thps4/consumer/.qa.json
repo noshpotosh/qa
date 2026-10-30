@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "profile": "research",
+  "integrationBranch": "main",
+  "paths": {
+    "captures": [
+      "Research/evidence/**",
+      "Research/local/**"
+    ],
+    "ui": [
+      "Tracker/public/**"
+    ],
+    "asset-pipeline": [
+      "Unity/Assets/**",
+      "Tools/**"
+    ]
+  },
+  "work": {
+    "enabled": false,
+    "plan": ".qa-work.json",
+    "adapter": {
+      "argv": [
+        "node",
+        "Tools/qa-work-adapter.mjs"
+      ],
+      "timeoutSeconds": 60
+    },
+    "capabilities": {
+      "baseline-ready": {
+        "argv": [
+          "node",
+          "Tools/qa-work-adapter.mjs",
+          "--check-baseline",
+          "{sourceRoot}"
+        ],
+        "timeoutSeconds": 60,
+        "readRoots": [
+          "{sourceRoot}"
+        ]
+      },
+      "unity": {
+        "argv": [
+          "python3",
+          "Tools/qa-work-checks.py",
+          "probe-unity"
+        ],
+        "timeoutSeconds": 60
+      },
+      "native-capture": {
+        "argv": [
+          "python3",
+          "Tools/qa-work-checks.py",
+          "capture"
+        ],
+        "timeoutSeconds": 60
+      },
+      "device": {
+        "argv": [
+          "python3",
+          "Tools/qa-work-checks.py",
+          "device"
+        ],
+        "timeoutSeconds": 60
+      }
+    },
+    "requiredCapabilities": [
+      "baseline-ready"
+    ],
+    "checks": {
+      "tracker": {
+        "argv": [
+          "python3",
+          "Tools/qa-work-checks.py",
+          "tracker"
+        ],
+        "timeoutSeconds": 360,
+        "outputs": [
+          ".qa-output/tracker.tap"
+        ],
+        "network": true
+      },
+      "unity-edit": {
+        "argv": [
+          "python3",
+          "Tools/qa-work-checks.py",
+          "edit"
+        ],
+        "timeoutSeconds": 3600,
+        "requires": [
+          "unity"
+        ],
+        "outputs": [
+          ".qa-output/edit.xml",
+          ".qa-output/edit-history.json",
+          ".qa-output/edit.log"
+        ]
+      },
+      "unity-play": {
+        "argv": [
+          "python3",
+          "Tools/qa-work-checks.py",
+          "play"
+        ],
+        "timeoutSeconds": 3600,
+        "requires": [
+          "unity"
+        ],
+        "outputs": [
+          ".qa-output/play.xml",
+          ".qa-output/play-history.json",
+          ".qa-output/play.log"
+        ]
+      },
+      "device-build": {
+        "argv": [
+          "python3",
+          "Tools/qa-work-checks.py",
+          "device"
+        ],
+        "timeoutSeconds": 60,
+        "requires": [
+          "device"
+        ]
+      }
+    },
+    "resources": [
+      {
+        "id": "disc-inputs",
+        "source": "Research/local/disc",
+        "target": "Research/local/disc"
+      },
+      {
+        "id": "recovered-inputs",
+        "source": "Unity/Assets/Recovered",
+        "target": "Research/local/qa-recovered-source"
+      }
+    ],
+    "readRoots": [
+      "/Applications/Unity/Hub/Editor/6000.3.10f1/Unity.app",
+      "../reverse/th4/tools"
+    ],
+    "protectedPaths": [
+      ".qa-tracker.json",
+      "Tools/qa-work-adapter.mjs",
+      "Tools/qa-work-checks.py",
+      "Tracker/qa-acceptance.mjs",
+      "Tracker/qa-acceptance.json"
+    ],
+    "adapterOutputs": [
+      "Tracker/qa-acceptance.json"
+    ]
+  }
+}

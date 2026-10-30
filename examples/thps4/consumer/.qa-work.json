@@ -1,0 +1,805 @@
+{
+  "version": 1,
+  "milestones": [
+    {
+      "id": "grinds-slides",
+      "title": "Finish the approved static-rail core",
+      "scope": "Finish the default-Tony static straight/sloped/linked/ledge rail core and frozen 12-row 50-50/boardslide repertoire. Preserve all 66 existing checks and numeric gates. Moving vehicles, alternative selector modes, full College reconstruction and pixel equality remain outside scope. Keep conditioned evidence separate from autonomous parity; human device acceptance must match the final build.",
+      "allowedPaths": [
+        "Unity/**",
+        "Tools/**",
+        "Tracker/**",
+        "Research/**",
+        "README.md"
+      ],
+      "finalChecks": [
+        "tracker",
+        "unity-edit",
+        "unity-play"
+      ],
+      "criteria": [
+        {
+          "id": "grinds.research.a175388fd1",
+          "description": "Research original behavior and evidence",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.research.5b8dc3a7d7",
+          "description": "Document milestone scope, evidence order and uncertainty",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.research.e885bc9d7f",
+          "description": "Audit current-disc rail parameters and initial grind/slide scripts with byte provenance",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.research.9ef350d107",
+          "description": "Admit default Tony stats, stance, controls, cheats and copied checkpoint in an isolated runtime",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.research.9368149525",
+          "description": "Recover rail graph and native acquisition/selection predicates; verify against current disc",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.research.76f958238b",
+          "description": "Capture successful and missed 50-50/boardslide entries in both directions three times; declare fixed tolerances",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.research.4de43890b3",
+          "description": "Capture westbound 50-50, boardslide, delayed entry and two negative controls three times",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.research.2996ed4f1a",
+          "description": "Verify current-disc rail graph and source consumer instruction bytes",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.implementation.b757acf0f2",
+          "description": "Define implementation acceptance scope",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.implementation.3ca487e701",
+          "description": "Implement rail query interface and deterministic fixtures independently",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.implementation.26750c6fd1",
+          "description": "Implement consumed grind input, eligibility, snap and initial grind/slide selection",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.implementation.aeb6ae1b46",
+          "description": "Cancel held grind input on pause, focus loss, disconnect, restart and scene change",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.implementation.5846a02b8c",
+          "description": "Implement independently verified attachment velocity and orientation consumers",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.verification.31326e5b2e",
+          "description": "Define reference comparisons",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.verification.2e2a8c0fb4",
+          "description": "Test acquisition boundaries, missed rails, direction and repeated input",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.verification.d598c18a92",
+          "description": "Compare entry events, selected trick, snap and facing against admitted captures",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.verification.9ce227ae39",
+          "description": "Compare attachment velocity and orientation against nine native consumer snapshots",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.verification.2cb3deaeb1",
+          "description": "Compare 15 native static queries and six dispatch guards with source-ordered candidate selection",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grinds.verification.365d068e3f",
+          "description": "Replay 383 original ground-through-acquisition-and-falloff states without recorded rail hits",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.research.522811b5b5",
+          "description": "Capture level and sloped rail motion, endpoints, jump-offs and re-entry three times",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.research.ba91be230d",
+          "description": "Recover motion, corner, exit and re-entry timing rules from native consumers and repeated captures",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.research.0330205e34",
+          "description": "Capture three repeated westbound linked-rail traversals through endpoint falloff",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.research.cce158745b",
+          "description": "Verify default-Tony global speed-limiter order with repeated current-disc native observations",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.implementation.b2a57232f3",
+          "description": "Implement rail-constrained movement, linked segments and endpoint transitions",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.implementation.5738e9b4c0",
+          "description": "Implement ollie exits and re-entry eligibility without regressing free air",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.implementation.d47f0cea08",
+          "description": "Implement standalone serial rail consumer for the admitted active chain",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.implementation.2011111d59",
+          "description": "Apply the global speed limiter once before ground, air and rail motion",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.verification.fbb6f913d8",
+          "description": "Compare position, velocity, segment changes and exit/re-entry events using fixed gates",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.verification.d8ce3cfe44",
+          "description": "Run existing ground, air, landing and bail regressions",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.verification.662c542a8d",
+          "description": "Compare 117 original attached-through-falloff states from one initial seed per case",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.verification.9913b45990",
+          "description": "Compare admitted rail-jump impulse/bases and autonomous approach through jump or first re-entry with fixed gates",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-motion.verification.42f20a55b4",
+          "description": "Compare autonomous post-re-entry speed and motion through second rail end and subsequent flight",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.research.473f73a179",
+          "description": "Capture neutral drift, left/right correction, reversal, repeated grinds and failures three times",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.research.2950ab9d99",
+          "description": "Recover balance state, stat interpolation, RNG consumers and failure thresholds",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.research.2747d02ef4",
+          "description": "Verify regular default-Tony native balance initialization, correction, RNG requests and failure threshold with admitted probes",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.research.759e60e0f9",
+          "description": "Recover GeneralBail script, input masking, button-event mash rate and recovery timing with repeated original traces",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.implementation.fe35376cda",
+          "description": "Implement balance evolution and correction independently",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.implementation.ce677cd3fc",
+          "description": "Integrate balance display and observed bail/recovery transitions",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.implementation.463b705f99",
+          "description": "Display balance and route lost-balance events into recovery",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.verification.132d8355c8",
+          "description": "Compare balance state and exact failure timing against admitted original traces",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.verification.697b152e34",
+          "description": "Test initial balance, corrections, repeated grinds, failure and reset boundaries",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.verification.a4fa57d1ff",
+          "description": "Compare admitted balance consumers and exact random request order using fixed floating-point gates",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.verification.f5c1414053",
+          "description": "Compare admitted bail script clocks, friction, input and recovery events at fixed gates",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-balance.verification.4e7cc4a79c",
+          "description": "Compare admitted bail physics through recovery and first restored-control update with finite source collision geometry",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.research.a02e5c0d9e",
+          "description": "Inventory basic grind/slide selection and declare the admitted repertoire before closeout",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.research.3cb3c010e7",
+          "description": "Identify current-disc entry, loop, exit and failure clips and sound events",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.research.bf0ef724a3",
+          "description": "Capture trick selection, pose, camera and audio alongside measured routes",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.implementation.0274103ee7",
+          "description": "Recover admitted grind/slide clips and integrate selection, blends and board alignment",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.implementation.1e1aeef32e",
+          "description": "Integrate grind camera and sound events with explicit asset-fidelity limits",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.implementation.43b56ba7b4",
+          "description": "Recover eight additive current-disc 50-50 and boardslide entry/range/exit clips",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.verification.0aae5a640b",
+          "description": "Compare repertoire, clip clocks, pose, camera and sound against admitted captures",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-presentation.verification.93519ec4fb",
+          "description": "Retain wider asset/raster gaps independently of mechanic progress",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.research.f9ae220ae4",
+          "description": "Specify measured straight rail, ledge, slope and linked-rail routes and reset positions",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.research.e80eb652cc",
+          "description": "Specify the measured six-node chain and two authored reset routes separately from the College world",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.implementation.6d4b176fca",
+          "description": "Add a separate catalog scene with rail/ledge routes and visible grind diagnostics",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.implementation.276d1a44cf",
+          "description": "Integrate keyboard, controller and touch grind/balance controls",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.implementation.5de11551af",
+          "description": "Include scene in build paths and preserve existing labs",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.implementation.0d33a008a5",
+          "description": "Add a separate playable rail scene with measured chain and grind diagnostics",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.implementation.af91ecff6b",
+          "description": "Integrate keyboard, controller and touch Grind controls with a scene-specific restart binding",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.verification.16d72b0b07",
+          "description": "Test scene navigation, pause, input cancellation, restart and return to menu",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.verification.cab31fa281",
+          "description": "Test live rail query adapter against deterministic contact fixtures",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-scene.verification.95e677b51d",
+          "description": "Exercise live balance failure, source fall/get-up clips, restored control and fresh ollie without route reset",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "tracker",
+            "unity-edit",
+            "unity-play"
+          ]
+        },
+        {
+          "id": "grind-device.research.a0d08a32bd",
+          "description": "Record new-scene device, build identity and input baseline separately",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "device-build"
+          ]
+        },
+        {
+          "id": "grind-device.implementation.3b60cde3d8",
+          "description": "Build, sign, install and launch the grind/slide lab on paired iPhone 13 mini",
+          "kind": "automated",
+          "done": true,
+          "evidence": [],
+          "checks": [
+            "device-build"
+          ]
+        },
+        {
+          "id": "grind-device.verification.a9d49fc1e8",
+          "description": "Verify touch and Backbone grind, balance and exit controls, safe areas and reconnect",
+          "kind": "human",
+          "done": true,
+          "evidence": [],
+          "checks": []
+        },
+        {
+          "id": "grind-device.verification.5ef93cde17",
+          "description": "Measure sustained new-scene performance and record hands-on acceptance",
+          "kind": "human",
+          "done": true,
+          "evidence": [],
+          "checks": []
+        }
+      ],
+      "tasks": []
+    }
+  ]
+}

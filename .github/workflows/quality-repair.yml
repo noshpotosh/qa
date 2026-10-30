@@ -42,7 +42,12 @@ jobs:
       - name: Validate immutable reference
         env:
           QA_REF: ${{ inputs.qa_ref }}
-        run: '[[ "$QA_REF" =~ ^[0-9a-f]{40}$ ]]'
+          TARGET_NUMBER: ${{ inputs.number }}
+          TARGET_KIND: ${{ inputs.kind }}
+        run: |
+          [[ "$QA_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$TARGET_KIND" == issue || "$TARGET_KIND" == pr ]]
       - uses: actions/checkout@v4
         with:
           repository: noshpotosh/qa
@@ -83,150 +88,30 @@ jobs:
           path: .qa-state/
           include-hidden-files: true
           retention-days: 14
-  edit:
+  round-1:
     needs: collect
     if: needs.collect.outputs.active == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: noshpotosh/qa
-          ref: ${{ inputs.qa_ref }}
-          path: .qa
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: qa-repair-state-0
-          path: .qa-state
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.collect.outputs.head }}
-          path: subject
-          persist-credentials: false
-      - name: Propose requested replacements
-        id: edit
-        continue-on-error: true
-        uses: openai/codex-action@v1
-        with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          working-directory: subject
-          prompt-file: ${{ github.workspace }}/.qa-state/prompt.txt
-          output-schema-file: ${{ github.workspace }}/.qa-state/schema.json
-          sandbox: read-only
-          safety-strategy: drop-sudo
-      - name: Capture untrusted replacement data
-        if: always()
-        env:
-          RESULT: ${{ steps.edit.outputs.final-message }}
-        run: |
-          mkdir -p .qa-candidate
-          node -e "require('fs').writeFileSync('.qa-candidate/candidate.json',process.env.RESULT || '')"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: qa-repair-candidate-1
-          path: .qa-candidate/
-          include-hidden-files: true
-          retention-days: 14
-  validate:
-    needs: [collect, edit]
-    if: always() && needs.collect.outputs.active == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: noshpotosh/qa
-          ref: ${{ inputs.qa_ref }}
-          path: .qa
-          persist-credentials: false
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/download-artifact@v4
-        with:
-          name: qa-repair-state-0
-          path: .qa-state
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: qa-repair-candidate-1
-          path: .qa-candidate
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.collect.outputs.head }}
-          fetch-depth: 0
-          path: subject
-          persist-credentials: false
-      - name: Validate in credential-free container
-        run: node .qa/scripts/repair-workspace.mjs validate .qa-state/record.json subject .qa-candidate/candidate.json
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: qa-repair-validation-1
-          path: validation.json
-          retention-days: 14
-  publish:
-    needs: [collect, validate]
-    if: always() && needs.collect.outputs.active == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: noshpotosh/qa
-          ref: ${{ inputs.qa_ref }}
-          path: .qa
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: qa-repair-state-0
-          path: .qa-state
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: qa-repair-candidate-1
-          path: .qa-candidate
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: qa-repair-validation-1
-          path: .qa-validation
-      - uses: actions/create-github-app-token@v2
-        id: app
-        with:
-          app-id: ${{ secrets.QA_APP_ID }}
-          private-key: ${{ secrets.QA_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-          permission-contents: write
-          permission-pull-requests: write
-          permission-issues: write
-      - name: Publish validated candidate and progress
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ steps.app.outputs.token }}
-          script: |
-            const fs = require('fs');
-            const {publishCandidate,publishProgress} = await import(`${process.cwd()}/.qa/lib/repair-github.mjs`);
-            const record = JSON.parse(fs.readFileSync('.qa-state/record.json','utf8'));
-            const read = p => { try {return JSON.parse(fs.readFileSync(p,'utf8'));} catch {return null;} };
-            const candidate = read('.qa-candidate/candidate.json');
-            const validation = read('.qa-validation/validation.json') || {status:'unavailable'};
-            let commit;
-            try {
-              commit = await publishCandidate(github,{...context.repo,record,candidate,validation});
-              record.status='awaiting-review'; record.reason='Published candidate; independent review and CI acceptance remain pending.';
-            } catch (e) {record.status='blocked';record.reason=e.message;}
-            record.rounds.push({number:1,status:record.status,commit,validation,candidate});
-            fs.writeFileSync('.qa-state/record.json',JSON.stringify(record));
-            await publishProgress(github,{...context.repo,record});
-            await core.summary.addRaw(`Repair request ${record.runId}: ${record.status}. ${record.reason}`).write();
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: qa-repair-state-1
-          path: .qa-state/record.json
-          include-hidden-files: true
-          retention-days: 14
+    uses: ./.github/workflows/quality-repair-round.yml
+    with:
+      qa_ref: ${{ inputs.qa_ref }}
+      previous: 0
+      round: 1
+    secrets: inherit
+  round-2:
+    needs: round-1
+    if: needs.round-1.outputs.decision == 'continue'
+    uses: ./.github/workflows/quality-repair-round.yml
+    with:
+      qa_ref: ${{ inputs.qa_ref }}
+      previous: 1
+      round: 2
+    secrets: inherit
+  round-3:
+    needs: round-2
+    if: needs.round-2.outputs.decision == 'continue'
+    uses: ./.github/workflows/quality-repair-round.yml
+    with:
+      qa_ref: ${{ inputs.qa_ref }}
+      previous: 2
+      round: 3
+    secrets: inherit
