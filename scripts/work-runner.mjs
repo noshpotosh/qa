@@ -1,12 +1,15 @@
+import { readyTasks, deriveTasks } from './work-planning.mjs';
+import { outcomeMode, blockedChecks, continuationEligible, validatePrerequisiteReview, recordContinuation } from '../lib/work-continuation.mjs';
 import { beginInvocation, endInvocation } from './work-lifecycle.mjs';
+import { relativePath } from '../lib/work-values.mjs';
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { git } from "../lib/git.mjs";
-import { fingerprint, selectReady, validateProposal, validateBindings, taskChecks, taskCapabilities } from "../lib/work-plan.mjs";
-import { effectiveMilestone, startAttempt, failAttempt, handoff, preparePlanningContext } from "../lib/work-state.mjs";
+import { fingerprint, validateBindings, taskChecks, taskCapabilities } from "../lib/work-plan.mjs";
+import { effectiveMilestone, startAttempt, failAttempt, handoff } from "../lib/work-state.mjs";
 import { createRun, loadRun, saveRun, storePath, acquireLock, reconcileRun } from "./work-store.mjs";
 import { workspaceSnapshot, headSnapshot, indexSnapshot, changedFiles, captureArtifacts, retainArtifacts, resourceIdentity } from "./work-evidence.mjs";
 import { provisionInputs, assertInputs } from "./work-sandbox.mjs";
@@ -24,12 +27,6 @@ function standards() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../skills");
   return fs.readdirSync(root).sort().map((name) => fs.readFileSync(path.join(root, name, "SKILL.md"), "utf8")).join("\n\n");
 }
-function pendingPlanning(state, milestone) {
-  return milestone.criteria.filter((c) => !c.done && c.kind === "automated" &&
-    (!state.focus?.length || state.focus.includes(c.id)) &&
-    !state.tasks.some((t) => t.criteria.includes(c.id) && (!state.focus?.length || t.criteria.every((id) => state.focus.includes(id))) && state.states[t.id]?.status !== "done" &&
-      (milestone.version !== 2 || taskCapabilities(t, milestone, state.config).every((id) => state.available.includes(id)))));
-}
 function assertActive(context) {
   if (context.signal?.aborted) throw Error("Run interrupted; partial workspace retained");
   if (context.now() >= context.deadline) throw Error("Invocation budget expired; partial workspace retained");
@@ -39,31 +36,18 @@ async function checkSet(executor, config, ids, context) {
   for (const id of [...new Set(ids)]) {
     assertActive(context);
     if (!config.checks[id]) throw Error(`Unknown approved check: ${id}`);
-    const result = await executor.check(config.checks[id]);
+    const command = config.checks[id];
+    const result = command.availability?.status === 'unavailable'
+      ? { status: 'unavailable', code: 2, output: command.availability.reason, unblock: command.availability.unblock }
+      : await executor.check(command);
+    if (outcomeMode(config) && context.state) {
+      context.state.unavailableChecks ||= {};
+      if (result.status === 'unavailable') context.state.unavailableChecks[id] = { output: result.output, unblock: result.unblock || 'Inspect the observed unavailable result and resolve its dependency', at: new Date().toISOString() };
+      else delete context.state.unavailableChecks[id];
+    }
     results.push({ id, command: config.checks[id].argv, ...result });
   }
   return results;
-}
-async function deriveTasks(executor, state, milestone) {
-  const criteria = pendingPlanning(state, milestone).filter((c) => milestone.version === 2 || c.checks.every((id) =>
-    (state.config.checks[id]?.requires || []).every((capability) => (state.available || []).includes(capability))));
-  if (!criteria.length) return false;
-  preparePlanningContext(state, criteria);
-  if ((state.planFailures || 0) >= 3) return false;
-  try {
-    const proposal = await executor.plan({ ...milestone, criteria }, state.tasks, { states: state.states, finalFailure: state.finalFailure, source: state.sourceContext });
-    const tasks = validateProposal(proposal, milestone, state.config, state.tasks);
-    if (tasks.some((t) => t.criteria.some((id) => !criteria.some((c) => c.id === id)))) throw Error("Proposal retries blocked or unrelated criteria");
-    const review = await executor.reviewPlan(milestone, tasks);
-    if (review.scope !== "within-request" || review.report.status !== "passed") throw Error("Derived plan did not pass independent scope review");
-    state.tasks.push(...tasks);
-    state.planningReason = null;
-    return true;
-  } catch (e) {
-    state.planFailures = (state.planFailures || 0) + 1;
-    state.planningReason = e.message;
-    return false;
-  }
 }
 function finishPending(state, directory) {
   const operation = state.pending;
@@ -84,7 +68,8 @@ function finishPending(state, directory) {
     state.revalidation = (state.revalidation || []).filter((criterionId) => criterionId !== id);
   }
   if (!state.checkpoints.some((c) => c.id === operation.id)) state.checkpoints.push({ id: operation.id, task: operation.taskId, commit: state.head });
-  const progressed = state.milestone.version === 2 ? operation.receipt.review.progress?.advanced || operation.receipt.review.resolvedSources.length
+  recordContinuation(state, state.tasks.find((t) => t.id === operation.taskId), operation.receipt);
+  const progressed = outcomeMode(state.config) ? operation.receipt.review.resolvedPrerequisites.length || operation.receipt.review.resolvedSources.length : state.milestone.version === 2 ? operation.receipt.review.progress?.advanced || operation.receipt.review.resolvedSources.length
     : operation.changed.length || newEvidence || operation.receipt.review.resolvedSources.length;
   state.noProgress = progressed ? 0 : (state.noProgress || 0) + 1;
   state.pending = null;
@@ -147,6 +132,7 @@ async function inspectCandidate(executor, context, state, directory, task, input
         p.evidencePaths.some((name) => !artifacts.some((a) => a.path === name)) ||
         (p.advanced && (!p.answer.trim() || !p.evidencePaths.length))) throw Error("Progress requires an independently reviewed answer and observed artifacts");
   }
+  validatePrerequisiteReview(state, task, review);
   if (fingerprint(workspaceSnapshot(state.worktree)) !== fingerprint(candidate)) throw Error("Read-only review changed source");
   const changed = changedFiles(headSnapshot(state.worktree), candidate, state.milestone, context.protectedPaths);
   assertActive(context);
@@ -196,6 +182,13 @@ async function performTask(executor, context, state, directory, task, inputIdent
     const result = replay ? replay.result : await executor.execute(effectiveMilestone(state, { milestone: state.milestone }), task, { previous: state.states[task.id].feedback || null, source: state.sourceContext });
     state.validationCandidate = { taskId: task.id, attempt: state.states[task.id].attempts, head: state.head, result, snapshot: fingerprint(workspaceSnapshot(state.worktree)) };
     saveRun(directory, state, { type: replay ? "validation-resumed" : "editor-result-retained", task: task.id, attempt: state.states[task.id].attempts });
+    try {
+      if (!Array.isArray(result.evidencePaths)) throw Error('Evidence paths must be an array');
+      result.evidencePaths.forEach(relativePath);
+    } catch (error) {
+      state.invalidExecutionResult = { task: task.id, attempt: state.states[task.id].attempts, reason: error.message };
+      throw Object.assign(Error(`Malformed editor evidence paths: ${error.message}; result and workspace retained`), { invalidEvidence: true });
+    }
     if (state.milestone.version === 2) {
       changedFiles(before, workspaceSnapshot(state.worktree), state.milestone, context.protectedPaths);
       result.operations = await runOperations(executor, context, state, directory, task);
@@ -208,7 +201,7 @@ async function performTask(executor, context, state, directory, task, inputIdent
     return true;
   } catch (e) {
     if (state.pending) throw e; // Resume must reconcile a possibly published local commit first.
-    if (e.operationUncertain && state.validationCandidate) {
+    if ((e.operationUncertain || e.invalidEvidence) && state.validationCandidate) {
       state.states[task.id].status = "blocked";
       state.states[task.id].reason = e.message;
       saveRun(directory, state, { type: "operation-uncertain", task: task.id, reason: e.message });
@@ -243,7 +236,7 @@ function quarantine(context, state) {
 async function executeLoop(executor, context, state, directory, inputIdentity, onProgress) {
   const { now, deadline, signal } = context, config = state.config, root = state.root, id = state.id;
   let completed = 0;
-  while (now() < deadline && completed < config.tasks && !signal?.aborted) {
+  while (now() < deadline && (outcomeMode(config) ? state.invocation.attemptsStarted : completed) < config.tasks && !signal?.aborted) {
     const current = readMilestone(root, config, id);
     reconcileRun(state, current, config);
     state.milestone = current.milestone;
@@ -261,17 +254,24 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
       if (state.status === "unavailable") break;
       continue;
     }
-    const tasks = state.tasks.filter((task) => !state.focus?.length || task.criteria.every((id) => state.focus.includes(id)))
+    const tasks = state.tasks.filter((task) => (!state.focus?.length || task.criteria.every((id) => state.focus.includes(id))) &&
+      (!outcomeMode(config) || continuationEligible(state, task) && !blockedChecks(state, task, milestone, taskChecks).length))
       .map((task) => ({ ...task, capabilities: taskCapabilities(task, milestone, config) }));
-    let ready = selectReady(milestone, tasks, state.states, context.available);
+    let ready = readyTasks(state, milestone, tasks, context.available);
     if (!ready.length) {
       if (milestone.version === 2 && state.lastBlockedProbeHead !== state.head) {
         await refreshCapabilities(executor, context, state, directory);
         state.lastBlockedProbeHead = state.head;
-        ready = selectReady(milestone, tasks, state.states, context.available);
+        ready = readyTasks(state, milestone, tasks, context.available);
         if (ready.length) continue;
       }
       if (await deriveTasks(executor, state, milestone)) { saveRun(directory, state, { type: "planned" }); continue; }
+      if (outcomeMode(config)) {
+        state.dependencyHandoff = { reason: (state.preparationStreak || 0) >= 3 ? 'Preparation limit reached; no newly executable implementation, verification or approved acquisition step' : 'No executable step remains in the approved dependency path',
+          alternatives: state.tasks.filter((t) => !state.focus?.length || t.criteria.every((id) => state.focus.includes(id))).map((t) => ({ task: t.id, status: state.states[t.id]?.status || 'unstarted', blockedChecks: blockedChecks(state, t, milestone, taskChecks), prerequisites: t.prerequisites })),
+          nextAction: 'Resolve the named prerequisite or unavailable check; build and verify protected changes separately before requesting activation approval' };
+        state.reason = state.dependencyHandoff.reason;
+      }
       state.status = milestone.criteria.filter((c) => !c.done && (!state.focus?.length || state.focus.includes(c.id))).every((c) => c.kind === "human") ? "awaiting-human" : "blocked";
       break;
     }
@@ -306,6 +306,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
       ({ state, directory } = createRun(root, snapshot, config));
     }
     reconcileRun(state, snapshot, config);
+    if (state.invalidExecutionResult) throw Error('Malformed editor result requires review before resume; candidate and attempt preserved');
     if (config.version === 2) {
       beginInvocation(state, invocationStart, deadline); state.status = "running"; invocationId = state.invocation.id;
       saveRun(directory, state, { type: 'invocation-began', invocation: invocationId });
@@ -324,7 +325,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
         saveRun(directory, state, { type: "uncommitted-candidate-retained-for-revalidation" });
       } else { finishPending(state, directory); saveRun(directory, state, { type: "recovered-checkpoint" }); }
     }
-    const context = { workspace: state.worktree, sourceRoot: state.root, baseline: state.baseline, directory, common: path.dirname(path.dirname(directory)),
+    const context = { state, continuation: config.continuation, workspace: state.worktree, sourceRoot: state.root, baseline: state.baseline, directory, common: path.dirname(path.dirname(directory)),
       resources, codex: config.codex, model: config.model, checks: config.checks,
       capabilities: config.capabilities, standards: standards(), deadline, now, signal,
       operations: config.operations || {},
@@ -344,6 +345,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     const executor = executorFactory(context, processOptions);
     await executor.doctor();
     if (resume && retryUnavailable) {
+      if (outcomeMode(config)) state.unavailableChecks = {};
       for (const [task, attempt] of Object.entries(state.states)) {
         const unavailable = attempt.unavailable || /^Codex (execute|review) unavailable:/.test(attempt.reason || "") ||
           (Array.isArray(attempt.feedback) && attempt.feedback.some((check) => check.status === "unavailable"));
@@ -363,6 +365,7 @@ export async function runMilestone(root, config, id, { approve = false, resume =
     if (state.noProgress >= 3) { state.status = "blocked"; state.reason = "No-progress budget exhausted; existing evidence and attempts preserved"; if (invocationId) endInvocation(state, now()); return handoff(state, effectiveMilestone(state, snapshot), available); }
     state.status = "running";
     state.reason = null;
+    state.dependencyHandoff = null;
     await executeLoop(executor, context, state, directory, inputIdentity, onProgress);
     if (state.status === "running") {
       state.status = signal?.aborted ? "interrupted" : "budget-paused";
