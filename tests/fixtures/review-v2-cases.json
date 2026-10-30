@@ -1,0 +1,30 @@
+[
+  {
+    "id": "hashes-not-semantics", "purpose": "accept", "question": "Do these captures prove the consumed manual input window?",
+    "criterion": "Prove the original recognizer's consumed-input window, including accepted and rejected boundary inputs.",
+    "artifact": {"sha256Verified":true,"identicalRepeats":3,"requestedInputs":["up","down"],"consumedInputs":"unmeasured","recognizerWindow":"unknown"},
+    "summary": "All hashes match; therefore the consumed input window is verified.",
+    "expected": {"resolved":false,"advanced":false,"clean":false}
+  },
+  {
+    "id": "documentation-churn", "purpose": "prepare", "question": "What new observation resolves the input window?",
+    "criterion": "Prove the consumed input window from observed original-game input events.",
+    "artifact": {"change":"Rephrased existing notes; no new observation or measurement","previousConclusion":"Window remains unknown","currentConclusion":"Window is not yet known"},
+    "summary": "Updated the notes and created a new artifact hash. No new evidence acquired.",
+    "expected": {"resolved":false,"advanced":false,"clean":false}
+  },
+  {
+    "id": "prerequisite-only", "purpose": "prepare", "question": "Can the owned session restore a checkpoint and acquire repeated raw observations?",
+    "criterion": "Prove consumed input timing and implement matching manual entry.",
+    "artifact": {"ownedSession":"isolated-fixture","checkpointRestores":3,"captureRuns":3,"identicalRawObservations":true,"consumedInputSemantics":"unresolved","implementation":"not-started"},
+    "summary": "Controller-observed restores and captures establish acquisition availability only.",
+    "expected": {"resolved":false,"advanced":true,"clean":true}
+  },
+  {
+    "id": "clean-acceptance", "purpose": "accept", "question": "Does normalizeTurn map 450 degrees to 90 while preserving negative and zero cases?",
+    "criterion": "normalizeTurn returns a canonical angle in [0,360) for finite inputs, including 450 -> 90, -90 -> 270, 0 -> 0.",
+    "artifact": {"source":"export function normalizeTurn(x) { return ((x % 360) + 360) % 360; }","productionTests":[{"input":450,"actual":90},{"input":-90,"actual":270},{"input":0,"actual":0},{"input":360,"actual":0}],"observedExitCode":0},
+    "summary": "Controller called the changed production export; all boundary examples passed. Scope is finite input normalization only.",
+    "expected": {"resolved":true,"advanced":true,"clean":true}
+  }
+]
