@@ -62,10 +62,7 @@ test('unavailable acceptance permits prerequisite work without invoking the clos
   assert.equal(r.continuation.blockedChecks[0].unblock, 'Build and independently verify admission validator');
 });
 test('observed unavailable acceptance is not retried by renamed tasks', async (t) => {
-  const f = setup(t, 0);
-  f.config.operations.capture = { argv: ['capture'], timeoutSeconds: 10, inputs: ['src/app.mjs'], outputs: ['.qa-output/raw.json'], verifier: 'research', reuse: 'inputs' };
-  f.snapshot.milestone.tasks[0].operations = ['capture'];
-  save(f); let checks = 0;
+  const f = setup(t, 0); save(f); let checks = 0;
   const r = await runMilestone(f.root, f.config, 'demo', { approve: true, executorFactory: (c) => ({ ...factory(c),
     check: async () => { checks++; return { status: 'unavailable', code: 2, output: 'Missing semantic observation' }; },
     plan: async () => ({ tasks: [{ ...f.snapshot.milestone.tasks[0], id: 'renamed' }] }) }) });
@@ -78,7 +75,10 @@ test('failed task attempts consume the invocation bound', async (t) => {
   assert.equal(r.continuation.remainingAttempts, 0);
 });
 test('malformed editor path retains same attempt and candidate before checks or acquisition', async (t) => {
-  const f = setup(t, 0); save(f); let checks = 0;
+  const f = setup(t, 0);
+  f.config.operations.capture = { argv: ['capture'], timeoutSeconds: 10, inputs: ['src/app.mjs'], outputs: ['.qa-output/raw.json'], verifier: 'research', reuse: 'inputs' };
+  f.snapshot.milestone.tasks[0].operations = ['capture'];
+  save(f); let checks = 0;
   await assert.rejects(runMilestone(f.root, f.config, 'demo', { approve: true, executorFactory: (c) => ({ ...factory(c),
     execute: async (m, task) => ({ ...await factory(c).execute(m, task), evidencePaths: ['/outside/evidence'] }),
     check: async () => { checks++; return pass; } }) }), /Malformed editor evidence paths/);
