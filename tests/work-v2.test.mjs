@@ -76,3 +76,16 @@ test('v2 file churn without reviewed progress stops after three checkpoints', as
     review: async () => review() }) });
   assert.equal(result.completed.length, 3); assert.equal(loadRun(f.root, 'demo').state.noProgress, 3);
 });
+
+test('reviewed preparation unlocks capability and acceptance without another invocation', async (t) => {
+  const f = v2Fixture(t), m = f.snapshot.milestone;
+  f.config.checks.research = { argv: ['research'], timeoutSeconds: 10 };
+  f.config.checks.test.requires = ['native'];
+  f.config.capabilities.native = { argv: ['native'], timeoutSeconds: 10, probe: true };
+  m.tasks.unshift({ ...m.tasks[0], id: 'prepare', purpose: 'prepare', checks: ['research'], priority: 10 });
+  saveV2(f);
+  const result = await runMilestone(f.root, f.config, 'demo', { approve: true, executorFactory: (c) => ({ ...executor(c),
+    check: async (cmd) => cmd.argv[0] === 'native' && !fs.existsSync(path.join(c.workspace, 'evidence/observation.json')) ? { status: 'unavailable', code: 2, output: 'Missing retained prerequisite' } : passed }) });
+  assert.equal(result.status, 'completed'); assert.deepEqual(result.completed, ['prepare', 'fix']);
+  assert(result.progress.capabilityChanges.some((e) => e.added.includes('native')));
+});

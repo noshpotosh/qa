@@ -91,7 +91,8 @@ export class CodexExecutor {
       "{output}": path.join(this.context.workspace, ".qa-output") };
     const roots = (command.readRoots || []).map((root) => path.resolve(this.context.sourceRoot, replacements[root] || root));
     const result = await sandboxCommand({ ...this.context, readRoots: [...(this.context.readRoots || []), ...roots] }, command.argv.map((arg) => replacements[arg] || arg), { ...this.processOptions(),
-      timeoutMs: Math.min(command.timeoutSeconds * 1000, this.processOptions().timeoutMs), network: command.network === true });
+      timeoutMs: Math.min(command.timeoutSeconds * 1000, this.processOptions().timeoutMs), network: command.network === true,
+      ...(command.probe === true ? { writable: false } : {}) });
     if (result.code === 2) result.status = "unavailable";
     return result;
   }
