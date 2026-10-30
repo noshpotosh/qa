@@ -267,10 +267,10 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
       }
       if (await deriveTasks(executor, state, milestone)) { saveRun(directory, state, { type: "planned" }); continue; }
       if (outcomeMode(config)) {
-        state.dependencyHandoff = { reason: (state.preparationStreak || 0) >= 3 ? 'Preparation limit reached; no newly executable implementation, verification or approved acquisition step' : 'No executable step remains in the approved dependency path',
+        state.dependencyHandoff = { classification: state.planningReason ? 'planning-failed' : 'dependency-blocked', planningError: state.planningReason || null, reason: (state.preparationStreak || 0) >= 3 ? 'Preparation limit reached; no newly executable implementation, verification or approved acquisition step' : 'No executable step remains in the approved dependency path',
           alternatives: state.tasks.filter((t) => !state.focus?.length || t.criteria.every((id) => state.focus.includes(id))).map((t) => ({ task: t.id, status: state.states[t.id]?.status || 'unstarted', blockedChecks: blockedChecks(state, t, milestone, taskChecks), prerequisites: t.prerequisites })),
           nextAction: 'Resolve the named prerequisite or unavailable check; build and verify protected changes separately before requesting activation approval' };
-        state.reason = state.dependencyHandoff.reason;
+        state.reason = state.planningReason ? `${state.dependencyHandoff.reason}; planner result: ${state.planningReason}` : state.dependencyHandoff.reason;
       }
       state.status = milestone.criteria.filter((c) => !c.done && (!state.focus?.length || state.focus.includes(c.id))).every((c) => c.kind === "human") ? "awaiting-human" : "blocked";
       break;
@@ -279,7 +279,7 @@ async function executeLoop(executor, context, state, directory, inputIdentity, o
     if (await performTask(executor, context, state, directory, task, inputIdentity)) {
       completed++;
       if (milestone.version === 2) await refreshCapabilities(executor, context, state, directory);
-      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = milestone.version === 2 ? "Three tasks produced no independently reviewed advancement" : "Three tasks produced no source, artifact or acceptance progress"; break; }
+      if (state.noProgress >= 3) { state.status = "blocked"; state.reason = outcomeMode(config) ? "Three tasks resolved no approved prerequisite or criterion" : milestone.version === 2 ? "Three tasks produced no independently reviewed advancement" : "Three tasks produced no source, artifact or acceptance progress"; break; }
     }
     else if (state.states[task.id]?.status === "blocked" && git(state.worktree, ["status", "--porcelain"]).trim()) {
       quarantine(context, state);
