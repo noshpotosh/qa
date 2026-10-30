@@ -11,6 +11,7 @@
 | `paths` | Arrays of repository-relative glob patterns; `*` matches within a segment, `**` crosses segments |
 | `disabledSkills` | Explicit skill exclusions; does not disable deterministic policy checks |
 | `validationCommands` | Documented commands for humans and ordinary CI; never executed by the review CLI |
+| `repair` | Disabled by default; explicit container validation commands, digest-pinned image and required CI checks for [requested repairs](repairs.md) |
 | `requireVisualEvidence` | Require an evidence URL or an explicit unavailable explanation for matched UI changes |
 | `sections` | Map Problem, Behavior, Validation, Risks, visual and size to headings in an existing PR template |
 
